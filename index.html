@@ -335,8 +335,8 @@ function gerarPDF(){
 
     let dataHora = `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
 
-    // ================= NUMERO DO RELATÓRIO
-    let numeroRelatorio = Date.now(); // único
+     // ================= NUMERO DO RELATÓRIO
+    let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; // único
 
     // ================= TEXTO FILTROS
     let texto="<b>Filtros aplicados:</b><br>";
