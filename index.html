@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Contadoria Judicial dos JEFs - PE (Triagem)</title>
+<title>Contadoria Judicial - PE</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -92,7 +92,6 @@ th{
     color:white;
 }
 
-/* 👉 AQUI: AUMENTAMOS O PADDING DA TABELA NA TELA PARA DESGRUDAR O TEXTO */
 td,th{
     border:1px solid #999;
     padding: 10px; 
@@ -105,6 +104,18 @@ tbody tr:nth-child(odd){background:white;}
 button{
     margin:5px;
     padding:8px;
+}
+
+/* Estilo para o botão de limpar ficar destacado (opcional) */
+.btn-limpar {
+    background-color: #ff5252;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-limpar:hover {
+    background-color: #d50000;
 }
 
 </style>
@@ -124,6 +135,7 @@ button{
     <button onclick="gerarPDF()">📄 Gerar PDF</button>
     <button onclick="salvarJSON()">💾 Salvar JSON</button>
     <button onclick="carregarJSON()">📂 Carregar JSON</button>
+    <button class="btn-limpar" onclick="limparDados()">🗑️ Limpar Dados</button>
 
     <h3>Total filtrado: <span id="total">0</span></h3>
 
@@ -154,6 +166,23 @@ let dados=[];
 let filtrados=[];
 let filtros={mes:[],orgao:[],etiqueta:[],assunto:[]};
 
+// ================= LIMPAR DADOS
+function limparDados(){
+    // Zera as variáveis de dados e filtros
+    dados = [];
+    filtrados = [];
+    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[]};
+
+    // Limpa a tela (filtros, tabela e total)
+    document.getElementById("filtros").innerHTML = "";
+    document.querySelector("thead").innerHTML = "";
+    document.querySelector("tbody").innerHTML = "";
+    document.getElementById("total").innerText = "0";
+
+    // Reseta o input de arquivo (permite subir o mesmo arquivo de novo)
+    document.getElementById("file").value = "";
+}
+
 // ================= DROP
 const drop=document.getElementById("drop");
 const file=document.getElementById("file");
@@ -169,11 +198,17 @@ file.onchange=e=>processar(e.target.files[0]);
 
 // ================= CSV
 function processar(f){
+    // Se o usuário clicar em cancelar na hora de escolher arquivo
+    if(!f) return; 
+
     let reader=new FileReader();
     reader.onload=e=>{
         let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
         dados=linhas.slice(1).map(l=>{
             let c=l.split(";");
+            // Evita erro em linhas vazias no final do CSV
+            if(c.length < 2) return null; 
+
             return{
                 proc:c[5],
                 autor:c[2],
@@ -185,7 +220,7 @@ function processar(f){
                 etiqueta:(c[14]||"").split(",").map(e=>e.trim()).filter(e=>e),
                 dias:parseInt(c[29])||0
             };
-        });
+        }).filter(d => d !== null); // Remove linhas vazias
         aplicar();
     };
     reader.readAsText(f);
@@ -289,7 +324,8 @@ function render(){
 
 // ================= JSON
 function salvarJSON(){
-    // Gera o nome do arquivo dinâmico também para o JSON
+    if(dados.length === 0) return alert("Não há dados para salvar.");
+
     let agora = new Date();
     let dia = String(agora.getDate()).padStart(2, '0');
     let mes = String(agora.getMonth() + 1).padStart(2, '0');
@@ -303,18 +339,25 @@ function salvarJSON(){
     let blob=new Blob([JSON.stringify(dados)],{type:"application/json"});
     let a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download=nomeArquivo; // Aplica o nome gerado
+    a.download=nomeArquivo;
     a.click();
 }
 
 function carregarJSON(){
     let input=document.createElement("input");
     input.type="file";
+    input.accept=".json";
     input.onchange=e=>{
         let reader=new FileReader();
         reader.onload=ev=>{
-            dados = JSON.parse(ev.target.result);
-            aplicar();
+            try {
+                dados = JSON.parse(ev.target.result);
+                // Limpa os filtros antes de aplicar os novos dados
+                filtros = {mes:[],orgao:[],etiqueta:[],assunto:[]};
+                aplicar();
+            } catch (err) {
+                alert("Erro ao ler o arquivo JSON.");
+            }
         };
         reader.readAsText(e.target.files[0]);
     };
@@ -322,6 +365,7 @@ function carregarJSON(){
 }
 
 function gerarPDF(){
+    if(filtrados.length === 0) return alert("Não há dados para gerar o PDF.");
 
     // ================= DATA + HORA
     let agora = new Date();
@@ -349,6 +393,7 @@ function gerarPDF(){
     if(filtros.etiqueta.length) texto+="Etiquetas: "+filtros.etiqueta.join(", ")+"<br>";
     if(filtros.orgao.length) texto+="Órgão: "+filtros.orgao.join(", ")+"<br>";
     if(filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
+    if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length) texto += "Nenhum (Todos os registros)<br>";
 
     // ================= HTML PDF
     let html = `
@@ -398,7 +443,6 @@ function gerarPDF(){
             color:white;
         }
 
-        /* 👉 AQUI: AUMENTAMOS O PADDING DA TABELA DO PDF TAMBÉM */
         td,th{
             border:1px solid #ccc;
             padding: 8px; 
@@ -444,12 +488,10 @@ function gerarPDF(){
     win.document.write(html);
     win.document.close(); 
     
-    // 👉 AQUI: Força o navegador a usar o nome correto ao salvar
     win.document.title = nomeArquivo; 
     
     win.focus();
     
-    // Pequeno atraso para garantir que o navegador processou o título antes de abrir a janela de impressão
     setTimeout(() => {
         win.print();
     }, 250);
