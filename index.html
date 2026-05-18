@@ -31,7 +31,7 @@ header img{
     border-radius:5px;
 }
 
-.container{padding:10px;}
+.container{padding:;}
 
 #drop{
     border:2px dashed #aaa;
@@ -45,13 +45,13 @@ header img{
 .filtros-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:10px;
-    margin-top:10px;
+    gap:;
+    margin-top:;
 }
 
 .filtro{
     background:#eee;
-    padding:10px;
+    padding:;
     border:1px solid #bbb;
 }
 
@@ -71,15 +71,15 @@ header img{
 /* COLUNAS */
 .colunas{
     background:white;
-    padding:10px;
-    margin-top:10px;
+    padding:;
+    margin-top:;
 }
 
 /* TABELA */
 table{
     width:100%;
     border-collapse:collapse;
-    margin-top:10px;
+    margin-top:;
 }
 
 th{
@@ -355,8 +355,17 @@ function gerarPDF(){
         print-color-adjust: exact !important;
     }
 
-    body{
-        font-family:Arial;
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px; /* 👈 AQUI VOCÊ CONTROLA A FONTE GERAL DO PDF */
+    }
+
+    /* Se quiser a tabela com uma fonte menor para caber mais coisas: */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 10px; /* 👈 TAMANHO DA FONTE SÓ DA TABELA */
     }
 
     .header{
@@ -368,6 +377,16 @@ function gerarPDF(){
         padding:10px;
     }
 
+    .header h3 {
+        font-size: 18px; /* 👈 TAMANHO DO TÍTULO DO CABEÇALHO */
+        margin: 0;
+    }
+
+    .header p {
+        font-size: 14px; /* 👈 TAMANHO DO SUBTÍTULO DO CABEÇALHO */
+        margin: 0;
+    }
+
     .header img{
         height:50px;
         background:white;
@@ -375,18 +394,12 @@ function gerarPDF(){
         border-radius:5px;
     }
 
-    table{
-        width:100%;
-        border-collapse:collapse;
-        margin-top: 15px;
-    }
-
     th{
         background:#64b5f6 !important;
         color:white;
     }
 
-    td,th{
+    td, th{
         border:1px solid #ccc;
         padding:5px;
     }
@@ -397,10 +410,10 @@ function gerarPDF(){
 
     .footer{
         margin-top:20px;
-        font-size:12px;
+        font-size: 10px; /* 👈 TAMANHO DA FONTE DO RODAPÉ */
+        color: #555;
     }
     </style>
-
     <div class="header">
         <div>
             <h3 style="margin:0;">Contadoria Judicial</h3>
