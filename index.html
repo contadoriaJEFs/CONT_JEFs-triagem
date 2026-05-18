@@ -2,14 +2,14 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Contadoria Judicial - PE</title>
+<title>Contadoria Judicial dos JEFs - PE (Triagem)</title>
 
-<!-- ✅ Chart.js corrigido -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
+    font-size: 14px; 
     font-family:Arial;
     background:#ddd;
     margin:0;
@@ -31,7 +31,7 @@ header img{
     border-radius:5px;
 }
 
-.container{padding:;}
+.container{padding:10px;}
 
 #drop{
     border:2px dashed #aaa;
@@ -45,14 +45,19 @@ header img{
 .filtros-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:;
-    margin-top:;
+    gap:10px;
+    margin-top:10px;
 }
 
 .filtro{
     background:#eee;
-    padding:;
+    padding:10px;
     border:1px solid #bbb;
+}
+
+.filtro b {
+    display: inline-block;
+    margin-bottom: 15px; 
 }
 
 .filtro button{
@@ -71,15 +76,15 @@ header img{
 /* COLUNAS */
 .colunas{
     background:white;
-    padding:;
-    margin-top:;
+    padding:10px;
+    margin-top:10px;
 }
 
 /* TABELA */
 table{
     width:100%;
     border-collapse:collapse;
-    margin-top:;
+    margin-top:10px;
 }
 
 th{
@@ -87,9 +92,11 @@ th{
     color:white;
 }
 
+/* 👉 AQUI: AUMENTAMOS O PADDING DA TABELA NA TELA PARA DESGRUDAR O TEXTO */
 td,th{
     border:1px solid #999;
-    padding:5px;
+    padding: 10px; 
+    text-align: left;
 }
 
 tbody tr:nth-child(even){background:#f1f1f1;}
@@ -120,9 +127,8 @@ button{
 
     <h3>Total filtrado: <span id="total">0</span></h3>
 
-    <!-- COLUNAS -->
     <div class="colunas">
-        <b>Colunas:</b><br>
+        <b>Colunas:</b><br><br>
         <label><input type="checkbox" checked id="c1" onchange="render()"> Processo</label>
         <label><input type="checkbox" id="c2" onchange="render()"> Autor</label>
         <label><input type="checkbox" checked id="c3" onchange="render()"> Réu</label>
@@ -133,7 +139,6 @@ button{
         <label><input type="checkbox" id="c8" onchange="render()"> Dias</label>
     </div>
 
-    <!-- FILTROS -->
     <div id="filtros" class="filtros-grid"></div>
 
     <table>
@@ -154,9 +159,7 @@ const drop=document.getElementById("drop");
 const file=document.getElementById("file");
 
 drop.onclick=()=>file.click();
-
 drop.ondragover=e=>e.preventDefault();
-
 drop.ondrop=e=>{
     e.preventDefault();
     processar(e.dataTransfer.files[0]);
@@ -166,16 +169,11 @@ file.onchange=e=>processar(e.target.files[0]);
 
 // ================= CSV
 function processar(f){
-
     let reader=new FileReader();
-
     reader.onload=e=>{
-
         let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
-
         dados=linhas.slice(1).map(l=>{
             let c=l.split(";");
-
             return{
                 proc:c[5],
                 autor:c[2],
@@ -188,11 +186,8 @@ function processar(f){
                 dias:parseInt(c[29])||0
             };
         });
-
         aplicar();
-
     };
-
     reader.readAsText(f);
 }
 
@@ -207,9 +202,7 @@ function base(){
 
 // ================= FILTROS
 function criarFiltros(){
-
     let baseDados = base();
-
     let meses=[...new Set(dados.map(d=>d.mes))].sort();
     let orgaos=[...new Set(baseDados.map(d=>d.orgao))];
     let assuntos=[...new Set(baseDados.map(d=>d.assunto))].sort();
@@ -218,7 +211,6 @@ function criarFiltros(){
     baseDados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
 
     let servidor=[], outros=[];
-
     [...etiquetasSet].forEach(e=>{
         if(e.toLowerCase().includes("servidor")||e.toLowerCase().includes("supervis")){
             servidor.push(e);
@@ -262,7 +254,6 @@ function aplicar(){
         (!filtros.assunto.length||filtros.assunto.includes(d.assunto)) &&
         (!filtros.etiqueta.length||filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
     );
-
     criarFiltros();
     render();
 }
@@ -275,7 +266,6 @@ function col(){
 // ================= RENDER
 function render(){
     document.getElementById("total").innerText = filtrados.length;
-
     let c = col();
     let head=["Processo","Autor","Réu","Órgão","Data","Assunto","Etiqueta","Dias"];
 
@@ -299,10 +289,21 @@ function render(){
 
 // ================= JSON
 function salvarJSON(){
+    // Gera o nome do arquivo dinâmico também para o JSON
+    let agora = new Date();
+    let dia = String(agora.getDate()).padStart(2, '0');
+    let mes = String(agora.getMonth() + 1).padStart(2, '0');
+    let ano = agora.getFullYear();
+    let hora = String(agora.getHours()).padStart(2, '0');
+    let min = String(agora.getMinutes()).padStart(2, '0');
+    let seg = String(agora.getSeconds()).padStart(2, '0');
+    
+    let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}.json`;
+
     let blob=new Blob([JSON.stringify(dados)],{type:"application/json"});
     let a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download="dados.json";
+    a.download=nomeArquivo; // Aplica o nome gerado
     a.click();
 }
 
@@ -335,8 +336,11 @@ function gerarPDF(){
 
     let dataHora = `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
 
-     // ================= NUMERO DO RELATÓRIO
-    let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; // único
+    // ================= NOME DO ARQUIVO (PDF)
+    let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}`;
+
+    // ================= NUMERO DO RELATÓRIO
+    let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; 
 
     // ================= TEXTO FILTROS
     let texto="<b>Filtros aplicados:</b><br>";
@@ -348,98 +352,107 @@ function gerarPDF(){
 
     // ================= HTML PDF
     let html = `
-    <style>
-    /* === ESSA É A REGRA QUE FORÇA A IMPRESSÃO DAS CORES === */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>${nomeArquivo}</title>
+        <style>
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
 
-    body {
-        font-family: Arial, sans-serif;
-        font-size: 12px; /* 👈 AQUI VOCÊ CONTROLA A FONTE GERAL DO PDF */
-    }
+        body{
+            font-family:Arial, sans-serif;
+            font-size: 12px; 
+        }
 
-    /* Se quiser a tabela com uma fonte menor para caber mais coisas: */
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        font-size: 10px; /* 👈 TAMANHO DA FONTE SÓ DA TABELA */
-    }
+        .header{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            background:#1565c0;
+            color:white;
+            padding:10px;
+        }
 
-    .header{
-        display:flex;
-        align-items:center;
-        gap:10px;
-        background:#1565c0;
-        color:white;
-        padding:10px;
-    }
+        .header h3 {
+            font-size: 18px; 
+            margin:0;
+        }
 
-    .header h3 {
-        font-size: 18px; /* 👈 TAMANHO DO TÍTULO DO CABEÇALHO */
-        margin: 0;
-    }
+        .header p {
+            font-size: 14px; 
+            margin:0;
+        }
 
-    .header p {
-        font-size: 14px; /* 👈 TAMANHO DO SUBTÍTULO DO CABEÇALHO */
-        margin: 0;
-    }
+        table{
+            width:100%;
+            border-collapse:collapse;
+            margin-top: 15px;
+            font-size: 10px; 
+        }
 
-    .header img{
-        height:50px;
-        background:white;
-        padding:3px;
-        border-radius:5px;
-    }
+        th{
+            background:#64b5f6 !important;
+            color:white;
+        }
 
-    th{
-        background:#64b5f6 !important;
-        color:white;
-    }
+        /* 👉 AQUI: AUMENTAMOS O PADDING DA TABELA DO PDF TAMBÉM */
+        td,th{
+            border:1px solid #ccc;
+            padding: 8px; 
+            text-align: left;
+        }
 
-    td, th{
-        border:1px solid #ccc;
-        padding:5px;
-    }
+        tr:nth-child(even){
+            background:#f1f1f1 !important;
+        }
 
-    tr:nth-child(even){
-        background:#f1f1f1 !important;
-    }
-
-    .footer{
-        margin-top:20px;
-        font-size: 10px; /* 👈 TAMANHO DA FONTE DO RODAPÉ */
-        color: #555;
-    }
-    </style>
-    <div class="header">
-        <div>
-            <h3 style="margin:0;">Contadoria Judicial</h3>
-            <p style="margin:0;">Justiça Federal em Pernambuco</p>
+        .footer{
+            margin-top:20px;
+            font-size:10px; 
+            color: #555;
+        }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+                <h3>Contadoria Judicial</h3>
+                <p>Justiça Federal em Pernambuco</p>
+            </div>
         </div>
-    </div>
 
-    <h2>Relatório de Processos</h2>
+        <h2>Relatório de Processos</h2>
 
-    <p><b>Nº do Relatório:</b> ${numeroRelatorio}</p>
+        <p><b>Nº do Relatório:</b> ${numeroRelatorio}</p>
 
-    <p>${texto}</p>
+        <p>${texto}</p>
 
-    ${document.querySelector("table").outerHTML}
+        ${document.querySelector("table").outerHTML}
 
-    <div class="footer">
-    Relatório emitido em: ${dataHora}
-    </div>
+        <div class="footer">
+        Relatório emitido em: ${dataHora}
+        </div>
+    </body>
+    </html>
     `;
 
-    // ================= ABRIR
+    // ================= ABRIR E IMPRIMIR
     let win = window.open("", "_blank");
     win.document.write(html);
-    win.document.close(); // Importante para garantir que a página carregue completamente
+    win.document.close(); 
+    
+    // 👉 AQUI: Força o navegador a usar o nome correto ao salvar
+    win.document.title = nomeArquivo; 
+    
     win.focus();
-    win.print();
+    
+    // Pequeno atraso para garantir que o navegador processou o título antes de abrir a janela de impressão
+    setTimeout(() => {
+        win.print();
+    }, 250);
 
 }
 
