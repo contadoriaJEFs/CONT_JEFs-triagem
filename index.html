@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Contadoria dos JEFs- PE (Triagem)</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+    font-size: 14px; 
+    font-family:Arial;
+    background:#ddd;
+    margin:0;
+}
+
+header{
+    background:#1565c0;
+    color:white;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px;
+}
+
+header img{
+    height:50px;
+    background:white;
+    padding:3px;
+    border-radius:5px;
+}
+
+.container{padding:10px;}
+
+#drop{
+    border:2px dashed #aaa;
+    background:#f5f5f5;
+    text-align:center;
+    padding:20px;
+    cursor:pointer;
+}
+
+/* FILTROS */
+.filtros-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+}
+
+.filtro{
+    background:#eee;
+    padding:10px;
+    border:1px solid #bbb;
+}
+
+.filtro b {
+    display: inline-block;
+    margin-bottom: 15px; 
+}
+
+.filtro button{
+    margin:3px;
+    padding:5px;
+    background:#ccc;
+    border:none;
+    cursor:pointer;
+}
+
+.filtro button.active{
+    background:#2196f3;
+    color:white;
+}
+
+/* COLUNAS */
+.colunas{
+    background:white;
+    padding:10px;
+    margin-top:10px;
+}
+
+/* TABELA */
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+
+th{
+    background:#64b5f6;
+    color:white;
+}
+
+td,th{
+    border:1px solid #999;
+    padding: 10px; 
+    text-align: left;
+}
+
+tbody tr:nth-child(even){background:#f1f1f1;}
+tbody tr:nth-child(odd){background:white;}
+
+button{
+    margin:5px;
+    padding:8px;
+}
+
+/* Estilo para o botão de limpar ficar destacado (opcional) */
+.btn-limpar {
+    background-color: #ff5252;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-limpar:hover {
+    background-color: #d50000;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <h3>Sistema de Filtragem Contadoria Judicial - Justiça Federal em Pernambuco</h3>
+</header>
+
+<div class="container">
+
+    <div id="drop">Arraste o CSV aqui ou clique</div>
+    <input type="file" id="file" hidden>
+
+    <button onclick="gerarPDF()">📄 Gerar PDF</button>
+    <button onclick="salvarJSON()">💾 Salvar JSON</button>
+    <button onclick="carregarJSON()">📂 Carregar JSON</button>
+    <button class="btn-limpar" onclick="limparDados()">🗑️ Limpar Dados</button>
+
+    <h3>Total filtrado: <span id="total">0</span></h3>
+
+    <div class="colunas">
+        <b>Colunas:</b><br><br>
+        <label><input type="checkbox" checked id="c1" onchange="render()"> Processo</label>
+        <label><input type="checkbox" id="c2" onchange="render()"> Autor</label>
+        <label><input type="checkbox" checked id="c3" onchange="render()"> Réu</label>
+        <label><input type="checkbox" checked id="c4" onchange="render()"> Órgão</label>
+        <label><input type="checkbox" checked id="c5" onchange="render()"> Data</label>
+        <label><input type="checkbox" checked id="c6" onchange="render()"> Assunto</label>
+        <label><input type="checkbox" id="c7" onchange="render()"> Etiqueta</label>
+        <label><input type="checkbox" id="c8" onchange="render()"> Dias</label>
+    </div>
+
+    <div id="filtros" class="filtros-grid"></div>
+
+    <table>
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+
+</div>
+
+<script>
+
+let dados=[];
+let filtrados=[];
+let filtros={mes:[],orgao:[],etiqueta:[],assunto:[]};
+
+// ================= LIMPAR DADOS
+function limparDados(){
+    // Zera as variáveis de dados e filtros
+    dados = [];
+    filtrados = [];
+    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[]};
+
+    // Limpa a tela (filtros, tabela e total)
+    document.getElementById("filtros").innerHTML = "";
+    document.querySelector("thead").innerHTML = "";
+    document.querySelector("tbody").innerHTML = "";
+    document.getElementById("total").innerText = "0";
+
+    // Reseta o input de arquivo (permite subir o mesmo arquivo de novo)
+    document.getElementById("file").value = "";
+}
+
+// ================= DROP
+const drop=document.getElementById("drop");
+const file=document.getElementById("file");
+
+drop.onclick=()=>file.click();
+drop.ondragover=e=>e.preventDefault();
+drop.ondrop=e=>{
+    e.preventDefault();
+    processar(e.dataTransfer.files[0]);
+};
+
+file.onchange=e=>processar(e.target.files[0]);
+
+// ================= CSV
+function processar(f){
+    // Se o usuário clicar em cancelar na hora de escolher arquivo
+    if(!f) return; 
+
+    let reader=new FileReader();
+    reader.onload=e=>{
+        let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
+        dados=linhas.slice(1).map(l=>{
+            let c=l.split(";");
+            // Evita erro em linhas vazias no final do CSV
+            if(c.length < 2) return null; 
+
+            return{
+                proc:c[5],
+                autor:c[2],
+                reu:c[3],
+                orgao:c[8],
+                data:c[9],
+                mes:(c[9]||"").split("/")[1],
+                assunto:c[22],
+                etiqueta:(c[14]||"").split(",").map(e=>e.trim()).filter(e=>e),
+                dias:parseInt(c[29])||0,
+                _riscado: false // Inicializa controle da caixa de seleção
+            };
+        }).filter(d => d !== null); // Remove linhas vazias
+        aplicar();
+    };
+    reader.readAsText(f);
+}
+
+// ================= BASE DINÂMICA
+// Mantida, mas não a usamos mais em criarFiltros() para não ocultar opções
+function base(){
+    return dados.filter(d=>
+        (!filtros.mes.length || filtros.mes.includes(d.mes)) &&
+        (!filtros.orgao.length || filtros.orgao.includes(d.orgao)) &&
+        (!filtros.etiqueta.length || filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
+    );
+}
+
+// ================= FILTROS
+function criarFiltros(){
+    // Utilizamos 'dados' invés de 'baseDados' para manter os botões sempre visíveis. 
+    // Assim o usuário consegue clicar em "Servidor 03" e depois em "Servidor 04".
+    let meses=[...new Set(dados.map(d=>d.mes))].sort();
+    let orgaos=[...new Set(dados.map(d=>d.orgao))];
+    let assuntos=[...new Set(dados.map(d=>d.assunto))].sort();
+
+    let etiquetasSet=new Set();
+    dados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+
+    let servidor=[], outros=[];
+    [...etiquetasSet].forEach(e=>{
+        if(e.toLowerCase().includes("servidor")||e.toLowerCase().includes("supervis")){
+            servidor.push(e);
+        }else{
+            outros.push(e);
+        }
+    });
+
+    servidor.sort();
+    outros.sort();
+
+    document.getElementById("filtros").innerHTML=`
+        <div class="filtro"><b>Mês</b><br>${meses.map(v=>btn("mes",v)).join("")}</div>
+        <div class="filtro"><b>Órgão</b><br>${orgaos.map(v=>btn("orgao",v)).join("")}</div>
+        <div class="filtro"><b>Servidor / Supervisão</b><br>${servidor.map(v=>btn("etiqueta",v)).join("")}</div>
+        <div class="filtro"><b>Outras etiquetas</b><br>${outros.map(v=>btn("etiqueta",v)).join("")}</div>
+        <div class="filtro" style="grid-column: span 2;"><b>Assunto</b><br>${assuntos.map(v=>btn("assunto",v)).join("")}</div>
+    `;
+}
+
+// ================= BOTÕES
+function btn(tipo, valor){
+    let ativo = filtros[tipo].includes(valor) ? "active" : "";
+    return `<button class="${ativo}" onclick="toggle('${tipo}','${valor}',this)">${valor}</button>`;
+}
+
+function toggle(tipo,val,el){
+    if(filtros[tipo].includes(val)){
+        filtros[tipo] = filtros[tipo].filter(v=>v!==val);
+    }else{
+        filtros[tipo].push(val);
+    }
+    aplicar();
+}
+
+// ================= FILTRAR
+function aplicar(){
+    filtrados = dados.filter(d=>
+        (!filtros.mes.length||filtros.mes.includes(d.mes)) &&
+        (!filtros.orgao.length||filtros.orgao.includes(d.orgao)) &&
+        (!filtros.assunto.length||filtros.assunto.includes(d.assunto)) &&
+        (!filtros.etiqueta.length||filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
+    );
+    criarFiltros();
+    render();
+}
+
+// ================= COLUNAS
+function col(){
+    return [c1.checked,c2.checked,c3.checked,c4.checked,c5.checked,c6.checked,c7.checked,c8.checked];
+}
+
+// ================= MARCAR LINHA (Ação Checkbox)
+function marcarLinha(proc, el) {
+    // Acha o processo na base geral e atualiza o estado
+    let item = dados.find(x => x.proc === proc);
+    if(item) item._riscado = el.checked;
+    
+    // Altera a linha sem precisar recarregar toda a tabela
+    let tr = el.closest('tr');
+    tr.style.textDecoration = el.checked ? 'line-through' : 'none';
+    tr.style.opacity = el.checked ? '0.6' : '1';
+}
+
+// ================= RENDER
+function render(){
+    document.getElementById("total").innerText = filtrados.length;
+    let c = col();
+    let head=["Processo","Autor","Réu","Órgão","Data","Assunto","Etiqueta","Dias"];
+
+    document.querySelector("thead").innerHTML =
+        "<tr><th style='width: 30px; text-align: center;'>✔</th>"+head.map((h,i)=>c[i]?`<th>${h}</th>`:"").join("")+"</tr>";
+
+    document.querySelector("tbody").innerHTML =
+        filtrados.map(d=>`
+        <tr style="text-decoration: ${d._riscado ? 'line-through' : 'none'}; opacity: ${d._riscado ? '0.6' : '1'};">
+            <td style='text-align: center;'>
+                <input type="checkbox" ${d._riscado ? 'checked' : ''} onchange="marcarLinha('${d.proc}', this)">
+            </td>
+            ${c[0]?`<td>${d.proc}</td>`:""}
+            ${c[1]?`<td>${d.autor}</td>`:""}
+            ${c[2]?`<td>${d.reu}</td>`:""}
+            ${c[3]?`<td>${d.orgao}</td>`:""}
+            ${c[4]?`<td>${d.data}</td>`:""}
+            ${c[5]?`<td>${d.assunto}</td>`:""}
+            ${c[6]?`<td>${d.etiqueta.join(", ")}</td>`:""}
+            ${c[7]?`<td>${d.dias}</td>`:""}
+        </tr>
+        `).join("");
+}
+
+// ================= JSON
+function salvarJSON(){
+    if(dados.length === 0) return alert("Não há dados para salvar.");
+
+    let agora = new Date();
+    let dia = String(agora.getDate()).padStart(2, '0');
+    let mes = String(agora.getMonth() + 1).padStart(2, '0');
+    let ano = agora.getFullYear();
+    let hora = String(agora.getHours()).padStart(2, '0');
+    let min = String(agora.getMinutes()).padStart(2, '0');
+    let seg = String(agora.getSeconds()).padStart(2, '0');
+    
+    let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}.json`;
+
+    let blob=new Blob([JSON.stringify(dados)],{type:"application/json"});
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=nomeArquivo;
+    a.click();
+}
+
+function carregarJSON(){
+    let input=document.createElement("input");
+    input.type="file";
+    input.accept=".json";
+    input.onchange=e=>{
+        let reader=new FileReader();
+        reader.onload=ev=>{
+            try {
+                dados = JSON.parse(ev.target.result);
+                // Limpa os filtros antes de aplicar os novos dados
+                filtros = {mes:[],orgao:[],etiqueta:[],assunto:[]};
+                aplicar();
+            } catch (err) {
+                alert("Erro ao ler o arquivo JSON.");
+            }
+        };
+        reader.readAsText(e.target.files[0]);
+    };
+    input.click();
+}
+
+function gerarPDF(){
+    if(filtrados.length === 0) return alert("Não há dados para gerar o PDF.");
+
+    // ================= DATA + HORA
+    let agora = new Date();
+
+    let dia = String(agora.getDate()).padStart(2, '0');
+    let mes = String(agora.getMonth() + 1).padStart(2, '0');
+    let ano = agora.getFullYear();
+
+    let hora = String(agora.getHours()).padStart(2, '0');
+    let min = String(agora.getMinutes()).padStart(2, '0');
+    let seg = String(agora.getSeconds()).padStart(2, '0');
+
+    let dataHora = `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
+
+    // ================= NOME DO ARQUIVO (PDF)
+    let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}`;
+
+    // ================= NUMERO DO RELATÓRIO
+    let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; 
+
+    // ================= TEXTO FILTROS
+    let texto="<b>Filtros aplicados:</b><br>";
+
+    if(filtros.mes.length) texto+="Mês: "+filtros.mes.join(", ")+"<br>";
+    if(filtros.etiqueta.length) texto+="Etiquetas: "+filtros.etiqueta.join(", ")+"<br>";
+    if(filtros.orgao.length) texto+="Órgão: "+filtros.orgao.join(", ")+"<br>";
+    if(filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
+    if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length) texto += "Nenhum (Todos os registros)<br>";
+
+    // ================= HTML PDF
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>${nomeArquivo}</title>
+        <style>
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body{
+            font-family:Arial, sans-serif;
+            font-size: 12px; 
+        }
+
+        .header{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            background:#1565c0;
+            color:white;
+            padding:10px;
+        }
+
+        .header h3 {
+            font-size: 18px; 
+            margin:0;
+        }
+
+        .header p {
+            font-size: 14px; 
+            margin:0;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+            margin-top: 15px;
+            font-size: 10px; 
+        }
+
+        th{
+            background:#64b5f6 !important;
+            color:white;
+        }
+
+        td,th{
+            border:1px solid #ccc;
+            padding: 8px; 
+            text-align: left;
+        }
+
+        tr:nth-child(even){
+            background:#f1f1f1 !important;
+        }
+
+        .footer{
+            margin-top:20px;
+            font-size:10px; 
+            color: #555;
+        }
+        /* Oculta a coluna do checkbox no PDF gerado para ficar mais limpo (Opcional) */
+        th:first-child, td:first-child { display: none; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+                <h3>Contadoria Judicial</h3>
+                <p>Justiça Federal em Pernambuco</p>
+            </div>
+        </div>
+
+        <h2>Relatório de Processos</h2>
+
+        <p><b>Nº do Relatório:</b> ${numeroRelatorio}</p>
+
+        <p>${texto}</p>
+
+        ${document.querySelector("table").outerHTML}
+
+        <div class="footer">
+        Relatório emitido em: ${dataHora}<br><br>
+        <b>Sistema desenvolvido para uso interno</b>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // ================= ABRIR E IMPRIMIR
+    let win = window.open("", "_blank");
+    win.document.write(html);
+    win.document.close(); 
+    
+    win.document.title = nomeArquivo; 
+    
+    win.focus();
+    
+    setTimeout(() => {
+        win.print();
+    }, 250);
+
+}
+
+</script>
+
+</body>
+</html>
