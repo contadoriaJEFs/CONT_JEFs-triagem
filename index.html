@@ -228,25 +228,25 @@ function processar(f){
 }
 
 // ================= BASE DINÂMICA
-// Mantida, mas não a usamos mais em criarFiltros() para não ocultar opções
-function base(){
+// Restabelecida com a lógica original que cascateia os dados,
+// mas agora ela permite ignorar a própria categoria para possibilitar múltiplas seleções
+function base(ignorarFiltro = null){
     return dados.filter(d=>
-        (!filtros.mes.length || filtros.mes.includes(d.mes)) &&
-        (!filtros.orgao.length || filtros.orgao.includes(d.orgao)) &&
-        (!filtros.etiqueta.length || filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
+        (ignorarFiltro === 'mes' || !filtros.mes.length || filtros.mes.includes(d.mes)) &&
+        (ignorarFiltro === 'orgao' || !filtros.orgao.length || filtros.orgao.includes(d.orgao)) &&
+        (ignorarFiltro === 'assunto' || !filtros.assunto.length || filtros.assunto.includes(d.assunto)) &&
+        (ignorarFiltro === 'etiqueta' || !filtros.etiqueta.length || filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
     );
 }
 
 // ================= FILTROS
 function criarFiltros(){
-    // Utilizamos 'dados' invés de 'baseDados' para manter os botões sempre visíveis. 
-    // Assim o usuário consegue clicar em "Servidor 03" e depois em "Servidor 04".
-    let meses=[...new Set(dados.map(d=>d.mes))].sort();
-    let orgaos=[...new Set(dados.map(d=>d.orgao))];
-    let assuntos=[...new Set(dados.map(d=>d.assunto))].sort();
+    let meses=[...new Set(dados.map(d=>d.mes))].sort(); // Mês sempre lista todos do arquivo
+    let orgaos=[...new Set(base('orgao').map(d=>d.orgao))];
+    let assuntos=[...new Set(base('assunto').map(d=>d.assunto))].sort();
 
     let etiquetasSet=new Set();
-    dados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+    base('etiqueta').forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
 
     let servidor=[], outros=[];
     [...etiquetasSet].forEach(e=>{
@@ -260,10 +260,25 @@ function criarFiltros(){
     servidor.sort();
     outros.sort();
 
+    // A contagem usa a base que filtra TUDO (mês, órgão, assunto),
+    // mas não filtra por etiqueta, garantindo que o número gerado esteja alinhado ao cenário filtrado.
+    let baseContagem = base('etiqueta');
+
+    let servidorHtml = servidor.map(v => {
+        let qtd = baseContagem.filter(d => d.etiqueta.includes(v)).length;
+        let ativo = filtros["etiqueta"].includes(v) ? "active" : "";
+        return `
+            <div style="display: inline-block; text-align: center; margin: 3px;">
+                <button class="${ativo}" style="margin: 0; margin-bottom: 2px;" onclick="toggle('etiqueta','${v}',this)">${v}</button><br>
+                <span style="color: darkblue; font-size: 12px; font-weight: bold;">${qtd}</span>
+            </div>
+        `;
+    }).join("");
+
     document.getElementById("filtros").innerHTML=`
         <div class="filtro"><b>Mês</b><br>${meses.map(v=>btn("mes",v)).join("")}</div>
         <div class="filtro"><b>Órgão</b><br>${orgaos.map(v=>btn("orgao",v)).join("")}</div>
-        <div class="filtro"><b>Servidor / Supervisão</b><br>${servidor.map(v=>btn("etiqueta",v)).join("")}</div>
+        <div class="filtro"><b>Servidor / Supervisão</b><br>${servidorHtml}</div>
         <div class="filtro"><b>Outras etiquetas</b><br>${outros.map(v=>btn("etiqueta",v)).join("")}</div>
         <div class="filtro" style="grid-column: span 2;"><b>Assunto</b><br>${assuntos.map(v=>btn("assunto",v)).join("")}</div>
     `;
