@@ -250,7 +250,7 @@ button{
 
 <div class="container">
 
-    <div id="drop">Arraste o CSV aqui ou clique</div>
+    <div id="drop">Arraste o CSV ou JSON salvo aqui (ou clique para selecionar)</div>
     <input type="file" id="file" hidden>
 
     <button onclick="gerarPDF()">📄 Gerar PDF</button>
@@ -260,7 +260,10 @@ button{
     <button class="btn-limpar" onclick="limparDados()">🗑️ Limpar Dados</button>
     <button class="btn-tutorial" onclick="abrirTutorial()">❓ Tutorial</button>
 
-    <h3>Total filtrado: <span id="total">0</span></h3>
+    <h3>
+        Total filtrado: <span id="total">0</span>
+        <span id="nome-arquivo" style="color: #1565c0; font-size: 14px; margin-left: 20px; font-weight: normal;"></span>
+    </h3>
 
     <div class="colunas">
         <b>Colunas:</b><br><br>
@@ -308,9 +311,9 @@ button{
             <ul>
                 <li><b>📄 Gerar PDF:</b> Exporta a visualização atual (com os filtros que você aplicou) para um arquivo PDF, pronto para impressão ou arquivamento.</li>
                 <li><b>💾 Salvar JSON:</b> Salva todo o seu progresso atual no seu computador. Isso inclui a listagem gerada, <b>os filtros selecionados no momento</b>, os processos que você "riscou" ou marcou como "a concluir", e todas as <b>anotações (notas)</b> feitas. Ideal para não perder o trabalho ao fechar a página.</li>
-                <li><b>📂 Carregar JSON:</b> Restaura um trabalho salvo anteriormente. Basta selecionar o arquivo `.json` que você baixou no botão acima.</li>
+                <li><b>📂 Carregar JSON:</b> Restaura um trabalho salvo anteriormente. Você pode clicar neste botão ou simplesmente <b>arrastar o arquivo JSON</b> para a área pontilhada no topo da tela.</li>
                 <li><b>📊 Exportar Excel:</b> Cria uma planilha do Excel (.xlsx) contendo todos os dados que estão visíveis na tela no momento, incluindo uma coluna extra com suas anotações.</li>
-                <li><b>🗑️ Limpar Dados:</b> Zera completamente o sistema, apagando a lista atual e os filtros para que você possa arrastar um novo arquivo CSV.</li>
+                <li><b>🗑️ Limpar Dados:</b> Zera completamente o sistema, apagando a lista atual e os filtros para que você possa arrastar um novo arquivo CSV ou JSON.</li>
                 <li><b>❓ Tutorial:</b> Abre esta janela de ajuda.</li>
             </ul>
 
@@ -346,10 +349,11 @@ function limparDados(){
     document.querySelector("thead").innerHTML = "";
     document.querySelector("tbody").innerHTML = "";
     document.getElementById("total").innerText = "0";
+    document.getElementById("nome-arquivo").innerText = "";
     document.getElementById("file").value = "";
 }
 
-// ================= DROP
+// ================= DROP & ARQUIVO
 const drop=document.getElementById("drop");
 const file=document.getElementById("file");
 
@@ -357,15 +361,46 @@ drop.onclick=()=>file.click();
 drop.ondragover=e=>e.preventDefault();
 drop.ondrop=e=>{
     e.preventDefault();
-    processar(e.dataTransfer.files[0]);
+    receberArquivo(e.dataTransfer.files[0]);
 };
 
-file.onchange=e=>processar(e.target.files[0]);
+file.onchange=e=>receberArquivo(e.target.files[0]);
+
+// ================= ROTEADOR DE ARQUIVO (CSV OU JSON)
+function receberArquivo(f) {
+    if(!f) return;
+    
+    // Mostra o nome do arquivo na tela
+    document.getElementById("nome-arquivo").innerText = "📁 Arquivo: " + f.name;
+    
+    // Verifica se é um arquivo JSON pelo nome
+    if(f.name.toLowerCase().endsWith('.json')) {
+        let reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                let parsed = JSON.parse(ev.target.result);
+                // Suporte para versões antigas e novas
+                if(Array.isArray(parsed)){
+                    dados = parsed;
+                    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+                } else {
+                    dados = parsed.dados || [];
+                    filtros = parsed.filtros || {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+                }
+                aplicar();
+            } catch (err) {
+                alert("Erro ao ler o arquivo JSON.");
+            }
+        };
+        reader.readAsText(f);
+    } else {
+        // Se não for JSON, processa como CSV
+        processar(f);
+    }
+}
 
 // ================= CSV
 function processar(f){
-    if(!f) return; 
-
     let reader=new FileReader();
     reader.onload=e=>{
         let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
@@ -445,6 +480,12 @@ function criarFiltros(){
     let btnSelectAllServ = `<button class="btn-controle" onclick="selecionarTodos('servidor')" title="Selecionar todos os servidores">✓ Todos</button>`;
     let btnLimparServ = `<button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('servidor')" title="Limpar filtro de servidores">🧹 Limpar</button>`;
 
+    let btnSelectAllReu = `<button class="btn-controle" onclick="selecionarTodos('reu')" title="Selecionar todos os réus">✓ Todos</button>`;
+    let btnLimparReu = `<button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('reu')" title="Limpar filtro de réus">🧹 Limpar</button>`;
+
+    let btnSelectAllAssunto = `<button class="btn-controle" onclick="selecionarTodos('assunto')" title="Selecionar todos os assuntos">✓ Todos</button>`;
+    let btnLimparAssunto = `<button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('assunto')" title="Limpar filtro de assunto">🧹 Limpar</button>`;
+
     document.getElementById("filtros").innerHTML=`
         <div class="filtro">
             <b>Mês</b> ${btnSelectAllMes} ${btnLimparMes}<br>
@@ -463,11 +504,11 @@ function criarFiltros(){
             ${outros.map(v=>btn("etiqueta",v)).join("")}
         </div>
         <div class="filtro" style="grid-column: span 2;">
-            <b>Polo Passivo / Réu</b><br>
+            <b>Polo Passivo / Réu</b> ${btnSelectAllReu} ${btnLimparReu}<br>
             ${reus.map(v=>btn("reu",v)).join("")}
         </div>
         <div class="filtro" style="grid-column: span 2;">
-            <b>Assunto</b><br>
+            <b>Assunto</b> ${btnSelectAllAssunto} ${btnLimparAssunto}<br>
             ${assuntos.map(v=>btn("assunto",v)).join("")}
         </div>
     `;
@@ -503,6 +544,12 @@ function selecionarTodos(tipo){
             }
         });
         filtros.etiqueta = [...todosServidores];
+    } else if(tipo === 'assunto'){
+        let todosAssuntos = [...new Set(dados.map(d=>d.assunto))].sort();
+        filtros.assunto = [...todosAssuntos];
+    } else if(tipo === 'reu'){
+        let todosReus = [...new Set(dados.map(d=>d.reu))].sort();
+        filtros.reu = [...todosReus];
     }
     aplicar();
 }
@@ -521,6 +568,10 @@ function limparFiltroEspecifico(tipo){
             }
         });
         filtros.etiqueta = filtros.etiqueta.filter(e => !servidores.includes(e));
+    } else if(tipo === 'assunto'){
+        filtros.assunto = [];
+    } else if(tipo === 'reu'){
+        filtros.reu = [];
     }
     aplicar();
 }
@@ -747,26 +798,7 @@ function carregarJSON(){
     input.type="file";
     input.accept=".json";
     input.onchange=e=>{
-        let reader=new FileReader();
-        reader.onload=ev=>{
-            try {
-                let parsed = JSON.parse(ev.target.result);
-                
-                // Suporte para versões antigas do JSON (quando era salvo apenas um array direto)
-                if(Array.isArray(parsed)){
-                    dados = parsed;
-                    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
-                } else {
-                    dados = parsed.dados || [];
-                    filtros = parsed.filtros || {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
-                }
-                
-                aplicar();
-            } catch (err) {
-                alert("Erro ao ler o arquivo JSON.");
-            }
-        };
-        reader.readAsText(e.target.files[0]);
+        receberArquivo(e.target.files[0]);
     };
     input.click();
 }
