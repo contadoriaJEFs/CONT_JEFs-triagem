@@ -138,7 +138,7 @@ button{
     padding:8px;
 }
 
-/* Estilo para o botão de limpar ficar destacado (opcional) */
+/* Botões Principais */
 .btn-limpar {
     background-color: #ff5252;
     color: white;
@@ -150,7 +150,6 @@ button{
     background-color: #d50000;
 }
 
-/* Botão Excel */
 .btn-excel {
     background-color: #217346;
     color: white;
@@ -162,16 +161,82 @@ button{
     background-color: #1a5c38;
 }
 
-/* Botão discreto de copiar processo */
-.btn-copiar-proc {
+.btn-tutorial {
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-tutorial:hover {
+    background-color: #e68a00;
+}
+
+/* Botões discretos de processo (Copiar e Notas) */
+.btn-acao-proc {
     cursor: pointer;
     font-size: 13px;
     margin-left: 6px;
     opacity: 0.3;
     transition: opacity 0.2s ease-in-out;
 }
-.btn-copiar-proc:hover {
+.btn-acao-proc:hover {
     opacity: 1;
+}
+.btn-acao-proc.tem-nota {
+    opacity: 1; 
+}
+
+/* Estilo Base para Janelas Modais (Notas e Tutorial) */
+.modal-overlay {
+    display: none; 
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.modal-content h3 {
+    margin-top: 0;
+    color: #1565c0;
+}
+.modal-content textarea {
+    width: 100%;
+    height: 180px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    font-family: Arial;
+    font-size: 14px;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+/* Ajustes específicos para o texto do tutorial */
+.tutorial-texto {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+.tutorial-texto ul {
+    padding-left: 20px;
+}
+.tutorial-texto li {
+    margin-bottom: 8px;
 }
 
 </style>
@@ -193,6 +258,7 @@ button{
     <button onclick="carregarJSON()">📂 Carregar JSON</button>
     <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Excel</button>
     <button class="btn-limpar" onclick="limparDados()">🗑️ Limpar Dados</button>
+    <button class="btn-tutorial" onclick="abrirTutorial()">❓ Tutorial</button>
 
     <h3>Total filtrado: <span id="total">0</span></h3>
 
@@ -217,26 +283,68 @@ button{
 
 </div>
 
+<div id="modal-notas" class="modal-overlay">
+    <div class="modal-content">
+        <h3 id="titulo-modal-notas">Anotações do Processo</h3>
+        <textarea id="texto-notas" placeholder="Digite as informações importantes sobre este processo aqui..."></textarea>
+        <div style="text-align: right;">
+            <button class="btn-limpar" onclick="fecharNotas()">Cancelar</button>
+            <button class="btn-controle" onclick="salvarNotas()" style="font-size: 14px; padding: 8px 15px;">💾 Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-tutorial" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+        <h3 style="color: #ff9800;">❓ Tutorial do Sistema</h3>
+        
+        <div class="tutorial-texto">
+            <p><b>Origem dos Dados:</b><br>
+            Os dados carregados neste sistema devem ser provenientes de um arquivo <b>CSV</b> baixado do sistema <b>PJE2 X</b>, utilizando a extensão <b>PJE+R</b>.</p>
+            
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+            
+            <p><b>Para que servem os botões?</b></p>
+            <ul>
+                <li><b>📄 Gerar PDF:</b> Exporta a visualização atual (com os filtros que você aplicou) para um arquivo PDF, pronto para impressão ou arquivamento.</li>
+                <li><b>💾 Salvar JSON:</b> Salva todo o seu progresso atual no seu computador. Isso inclui a listagem gerada, os processos que você "riscou" e todas as <b>anotações (notas)</b> feitas. Ideal para não perder o trabalho ao fechar a página.</li>
+                <li><b>📂 Carregar JSON:</b> Restaura um trabalho salvo anteriormente. Basta selecionar o arquivo `.json` que você baixou no botão acima.</li>
+                <li><b>📊 Exportar Excel:</b> Cria uma planilha do Excel (.xlsx) contendo todos os dados que estão visíveis na tela no momento, incluindo uma coluna extra com suas anotações.</li>
+                <li><b>🗑️ Limpar Dados:</b> Zera completamente o sistema, apagando a lista atual e os filtros para que você possa arrastar um novo arquivo CSV.</li>
+                <li><b>❓ Tutorial:</b> Abre esta janela de ajuda.</li>
+            </ul>
+
+            <p><b>Na tabela de processos:</b></p>
+            <ul>
+                <li><b>Caixa de Seleção (✔):</b> Ao marcá-la, a linha do processo fica "riscada", ajudando no controle visual do que já foi triado ou analisado.</li>
+                <li><b>Ícone 📋:</b> Copia o número do processo rapidamente para sua área de transferência.</li>
+                <li><b>Ícone 📝:</b> Abre uma janela grande onde você pode adicionar informações, resumos ou observações específicas sobre aquele processo. Se houver algo anotado, o ícone ficará mais escuro para chamar sua atenção.</li>
+            </ul>
+        </div>
+
+        <div style="text-align: right; margin-top: 15px;">
+            <button class="btn-tutorial" onclick="fecharTutorial()" style="font-size: 14px; padding: 8px 20px;">Entendi</button>
+        </div>
+    </div>
+</div>
+
 <script>
 
 let dados=[];
 let filtrados=[];
 let filtros={mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+let procAtualEdicao = null; 
 
 // ================= LIMPAR DADOS
 function limparDados(){
-    // Zera as variáveis de dados e filtros
     dados = [];
     filtrados = [];
     filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
 
-    // Limpa a tela (filtros, tabela e total)
     document.getElementById("filtros").innerHTML = "";
     document.querySelector("thead").innerHTML = "";
     document.querySelector("tbody").innerHTML = "";
     document.getElementById("total").innerText = "0";
-
-    // Reseta o input de arquivo (permite subir o mesmo arquivo de novo)
     document.getElementById("file").value = "";
 }
 
@@ -255,7 +363,6 @@ file.onchange=e=>processar(e.target.files[0]);
 
 // ================= CSV
 function processar(f){
-    // Se o usuário clicar em cancelar na hora de escolher arquivo
     if(!f) return; 
 
     let reader=new FileReader();
@@ -263,7 +370,6 @@ function processar(f){
         let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
         dados=linhas.slice(1).map(l=>{
             let c=l.split(";");
-            // Evita erro em linhas vazias no final do CSV
             if(c.length < 2) return null; 
 
             return{
@@ -276,9 +382,10 @@ function processar(f){
                 assunto:c[22],
                 etiqueta:(c[14]||"").split(",").map(e=>e.trim()).filter(e=>e),
                 dias:parseInt(c[29])||0,
-                _riscado: false // Inicializa controle da caixa de seleção
+                _riscado: false, 
+                notas: "" 
             };
-        }).filter(d => d !== null); // Remove linhas vazias
+        }).filter(d => d !== null); 
         aplicar();
     };
     reader.readAsText(f);
@@ -297,7 +404,7 @@ function base(ignorarFiltro = null){
 
 // ================= FILTROS
 function criarFiltros(){
-    let meses=[...new Set(dados.map(d=>d.mes))].sort(); // Mês sempre lista todos do arquivo
+    let meses=[...new Set(dados.map(d=>d.mes))].sort(); 
     let orgaos=[...new Set(base('orgao').map(d=>d.orgao))];
     let assuntos=[...new Set(base('assunto').map(d=>d.assunto))].sort();
     let reus=[...new Set(base('reu').map(d=>d.reu))].sort();
@@ -418,7 +525,6 @@ function limparFiltroEspecifico(tipo){
 
 // ================= FILTRAR E ORDENAR POR DATA
 function aplicar(){
-    // 1. Aplica todos os filtros
     filtrados = dados.filter(d=>
         (!filtros.mes.length||filtros.mes.includes(d.mes)) &&
         (!filtros.orgao.length||filtros.orgao.includes(d.orgao)) &&
@@ -427,29 +533,23 @@ function aplicar(){
         (!filtros.etiqueta.length||filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
     );
 
-    // 2. Ordena o resultado filtrado por data (Mais antigo para o mais recente)
     filtrados.sort((a, b) => {
         const formatarDataParaNumero = (dataStr) => {
             if (!dataStr) return 0;
-            // Separa caso a data possua horas (Ex: 15/04/2023 10:30)
             let partesTempo = dataStr.split(" "); 
             let dma = partesTempo[0].split("/");
-            
             if (dma.length < 3) return 0;
             
             let dia = dma[0].padStart(2, '0');
             let mes = dma[1].padStart(2, '0');
             let ano = dma[2];
             
-            let tempo = "000000"; // Se não tiver hora, usa zero
+            let tempo = "000000";
             if (partesTempo[1]) {
                 tempo = partesTempo[1].replace(/:/g, "").padEnd(6, '0');
             }
-            
-            // Retorna no formato AAAAMMDDHHMMSS como um número inteiro para comparação
             return parseInt(ano + mes + dia + tempo);
         };
-        
         return formatarDataParaNumero(a.data) - formatarDataParaNumero(b.data);
     });
 
@@ -462,7 +562,7 @@ function col(){
     return [c1.checked,c2.checked,c3.checked,c4.checked,c5.checked,c6.checked,c7.checked,c8.checked];
 }
 
-// ================= MARCAR LINHA (Ação Checkbox)
+// ================= MARCAR LINHA
 function marcarLinha(proc, el) {
     let item = dados.find(x => x.proc === proc);
     if(item) item._riscado = el.checked;
@@ -476,11 +576,45 @@ function marcarLinha(proc, el) {
 function copiarTexto(texto, el) {
     navigator.clipboard.writeText(texto).then(() => {
         let original = el.innerText;
-        el.innerText = "✔️"; // Feedback visual temporário
+        el.innerText = "✔️"; 
         setTimeout(() => el.innerText = original, 1500);
-    }).catch(err => {
-        console.error("Erro ao copiar o processo: ", err);
-    });
+    }).catch(err => console.error("Erro ao copiar", err));
+}
+
+// ================= GESTÃO DE NOTAS (ABRIR, FECHAR, SALVAR)
+function abrirNotas(proc) {
+    let item = dados.find(x => x.proc === proc);
+    if(item) {
+        procAtualEdicao = proc;
+        document.getElementById("titulo-modal-notas").innerText = "Anotações - Processo: " + proc;
+        document.getElementById("texto-notas").value = item.notas || "";
+        document.getElementById("modal-notas").style.display = "flex";
+    }
+}
+
+function fecharNotas() {
+    document.getElementById("modal-notas").style.display = "none";
+    procAtualEdicao = null;
+}
+
+function salvarNotas() {
+    if(procAtualEdicao) {
+        let item = dados.find(x => x.proc === procAtualEdicao);
+        if(item) {
+            item.notas = document.getElementById("texto-notas").value;
+        }
+        fecharNotas();
+        render(); 
+    }
+}
+
+// ================= GESTÃO DO TUTORIAL
+function abrirTutorial() {
+    document.getElementById("modal-tutorial").style.display = "flex";
+}
+
+function fecharTutorial() {
+    document.getElementById("modal-tutorial").style.display = "none";
 }
 
 // ================= RENDER
@@ -493,21 +627,29 @@ function render(){
         "<tr><th style='width: 30px; text-align: center;'>✔</th>"+head.map((h,i)=>c[i]?`<th>${h}</th>`:"").join("")+"</tr>";
 
     document.querySelector("tbody").innerHTML =
-        filtrados.map(d=>`
-        <tr style="text-decoration: ${d._riscado ? 'line-through' : 'none'}; opacity: ${d._riscado ? '0.6' : '1'};">
-            <td style='text-align: center;'>
-                <input type="checkbox" ${d._riscado ? 'checked' : ''} onchange="marcarLinha('${d.proc}', this)">
-            </td>
-            ${c[0]?`<td>${d.proc} <span class="btn-copiar-proc" onclick="copiarTexto('${d.proc}', this)" title="Copiar número do processo">📋</span></td>`:""}
-            ${c[1]?`<td>${d.autor}</td>`:""}
-            ${c[2]?`<td>${d.reu}</td>`:""}
-            ${c[3]?`<td>${d.orgao}</td>`:""}
-            ${c[4]?`<td>${d.data}</td>`:""}
-            ${c[5]?`<td>${d.assunto}</td>`:""}
-            ${c[6]?`<td>${d.etiqueta.join(", ")}</td>`:""}
-            ${c[7]?`<td>${d.dias}</td>`:""}
-        </tr>
-        `).join("");
+        filtrados.map(d=>{
+            let iconeNotaAceso = (d.notas && d.notas.trim() !== "") ? "tem-nota" : "";
+            
+            return `
+            <tr style="text-decoration: ${d._riscado ? 'line-through' : 'none'}; opacity: ${d._riscado ? '0.6' : '1'};">
+                <td style='text-align: center;'>
+                    <input type="checkbox" ${d._riscado ? 'checked' : ''} onchange="marcarLinha('${d.proc}', this)">
+                </td>
+                ${c[0]?`<td>
+                    ${d.proc} 
+                    <span class="btn-acao-proc" onclick="copiarTexto('${d.proc}', this)" title="Copiar número">📋</span>
+                    <span class="btn-acao-proc ${iconeNotaAceso}" onclick="abrirNotas('${d.proc}')" title="Anotações">📝</span>
+                </td>`:""}
+                ${c[1]?`<td>${d.autor}</td>`:""}
+                ${c[2]?`<td>${d.reu}</td>`:""}
+                ${c[3]?`<td>${d.orgao}</td>`:""}
+                ${c[4]?`<td>${d.data}</td>`:""}
+                ${c[5]?`<td>${d.assunto}</td>`:""}
+                ${c[6]?`<td>${d.etiqueta.join(", ")}</td>`:""}
+                ${c[7]?`<td>${d.dias}</td>`:""}
+            </tr>
+            `;
+        }).join("");
 }
 
 // ================= EXPORTAR EXCEL
@@ -527,6 +669,8 @@ function exportarExcel(){
         if(c[6]) row["Etiqueta"] = d.etiqueta.join(", ");
         if(c[7]) row["Dias"] = d.dias;
         
+        if(d.notas && d.notas.trim() !== "") row["Anotações"] = d.notas;
+        
         return row;
     });
 
@@ -536,8 +680,8 @@ function exportarExcel(){
     Object.keys(dadosExcel[0]).forEach(key => {
         let maxWidth = key.length;
         dadosExcel.forEach(row => {
-            if(row[key] && row[key].length > maxWidth){
-                maxWidth = row[key].length;
+            if(row[key] && String(row[key]).length > maxWidth){
+                maxWidth = String(row[key]).length;
             }
         });
         colWidths.push({wch: Math.min(maxWidth + 2, 50)});
@@ -604,28 +748,19 @@ function carregarJSON(){
 function gerarPDF(){
     if(filtrados.length === 0) return alert("Não há dados para gerar o PDF.");
 
-    // ================= DATA + HORA
     let agora = new Date();
-
     let dia = String(agora.getDate()).padStart(2, '0');
     let mes = String(agora.getMonth() + 1).padStart(2, '0');
     let ano = agora.getFullYear();
-
     let hora = String(agora.getHours()).padStart(2, '0');
     let min = String(agora.getMinutes()).padStart(2, '0');
     let seg = String(agora.getSeconds()).padStart(2, '0');
 
     let dataHora = `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
-
-    // ================= NOME DO ARQUIVO (PDF)
     let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}`;
-
-    // ================= NUMERO DO RELATÓRIO
     let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; 
 
-    // ================= TEXTO FILTROS
     let texto="<b>Filtros aplicados:</b><br>";
-
     if(filtros.mes.length) texto+="Mês: "+filtros.mes.join(", ")+"<br>";
     if(filtros.etiqueta.length) texto+="Etiquetas: "+filtros.etiqueta.join(", ")+"<br>";
     if(filtros.orgao.length) texto+="Órgão: "+filtros.orgao.join(", ")+"<br>";
@@ -633,7 +768,6 @@ function gerarPDF(){
     if(filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
     if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length && !filtros.reu.length) texto += "Nenhum (Todos os registros)<br>";
 
-    // ================= HTML PDF
     let html = `
     <!DOCTYPE html>
     <html>
@@ -644,12 +778,10 @@ function gerarPDF(){
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
-
         body{
             font-family:Arial, sans-serif;
             font-size: 12px; 
         }
-
         .header{
             display:flex;
             align-items:center;
@@ -658,50 +790,39 @@ function gerarPDF(){
             color:white;
             padding:10px;
         }
-
         .header h3 {
             font-size: 18px; 
             margin:0;
         }
-
         .header p {
             font-size: 14px; 
             margin:0;
         }
-
         table{
             width:100%;
             border-collapse:collapse;
             margin-top: 15px;
             font-size: 10px; 
         }
-
         th{
             background:#64b5f6 !important;
             color:white;
         }
-
         td,th{
             border:1px solid #ccc;
             padding: 8px; 
             text-align: left;
         }
-
         tr:nth-child(even){
             background:#f1f1f1 !important;
         }
-
         .footer{
             margin-top:20px;
             font-size:10px; 
             color: #555;
         }
-        
-        /* Oculta a coluna do checkbox no PDF */
         th:first-child, td:first-child { display: none; }
-        
-        /* Oculta o botão de copiar no PDF impresso para manter o visual limpo */
-        .btn-copiar-proc { display: none !important; }
+        .btn-acao-proc { display: none !important; }
         </style>
     </head>
     <body>
@@ -715,7 +836,6 @@ function gerarPDF(){
         <h2>Relatório de Processos</h2>
 
         <p><b>Nº do Relatório:</b> ${numeroRelatorio}</p>
-
         <p>${texto}</p>
 
         ${document.querySelector("table").outerHTML}
@@ -728,19 +848,15 @@ function gerarPDF(){
     </html>
     `;
 
-    // ================= ABRIR E IMPRIMIR
     let win = window.open("", "_blank");
     win.document.write(html);
     win.document.close(); 
-    
     win.document.title = nomeArquivo; 
-    
     win.focus();
     
     setTimeout(() => {
         win.print();
     }, 250);
-
 }
 
 </script>
