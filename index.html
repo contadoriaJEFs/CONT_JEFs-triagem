@@ -416,8 +416,9 @@ function limparFiltroEspecifico(tipo){
     aplicar();
 }
 
-// ================= FILTRAR
+// ================= FILTRAR E ORDENAR POR DATA
 function aplicar(){
+    // 1. Aplica todos os filtros
     filtrados = dados.filter(d=>
         (!filtros.mes.length||filtros.mes.includes(d.mes)) &&
         (!filtros.orgao.length||filtros.orgao.includes(d.orgao)) &&
@@ -425,6 +426,33 @@ function aplicar(){
         (!filtros.reu.length||filtros.reu.includes(d.reu)) &&
         (!filtros.etiqueta.length||filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
     );
+
+    // 2. Ordena o resultado filtrado por data (Mais antigo para o mais recente)
+    filtrados.sort((a, b) => {
+        const formatarDataParaNumero = (dataStr) => {
+            if (!dataStr) return 0;
+            // Separa caso a data possua horas (Ex: 15/04/2023 10:30)
+            let partesTempo = dataStr.split(" "); 
+            let dma = partesTempo[0].split("/");
+            
+            if (dma.length < 3) return 0;
+            
+            let dia = dma[0].padStart(2, '0');
+            let mes = dma[1].padStart(2, '0');
+            let ano = dma[2];
+            
+            let tempo = "000000"; // Se não tiver hora, usa zero
+            if (partesTempo[1]) {
+                tempo = partesTempo[1].replace(/:/g, "").padEnd(6, '0');
+            }
+            
+            // Retorna no formato AAAAMMDDHHMMSS como um número inteiro para comparação
+            return parseInt(ano + mes + dia + tempo);
+        };
+        
+        return formatarDataParaNumero(a.data) - formatarDataParaNumero(b.data);
+    });
+
     criarFiltros();
     render();
 }
