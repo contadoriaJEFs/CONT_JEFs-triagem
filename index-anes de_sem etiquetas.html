@@ -42,6 +42,29 @@ header img{
     cursor:pointer;
 }
 
+/* ABAS */
+.abas {
+    display: flex;
+    gap: 5px;
+    margin-top: 20px;
+    border-bottom: 2px solid #1565c0;
+}
+.aba {
+    padding: 10px 20px;
+    cursor: pointer;
+    background: #e0e0e0;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    color: #555;
+}
+.aba.ativa {
+    background: #1565c0;
+    color: white;
+    border-color: #1565c0;
+}
+
 /* FILTROS */
 .filtros-grid{
     display:grid;
@@ -265,6 +288,11 @@ button{
         <span id="nome-arquivo" style="color: #1565c0; font-size: 14px; margin-left: 20px; font-weight: normal;"></span>
     </h3>
 
+    <div class="abas" id="abas-container" style="display:none;">
+        <div class="aba ativa" id="aba-com" onclick="mudarAba('com')">Processos com Etiquetas</div>
+        <div class="aba" id="aba-sem" onclick="mudarAba('sem')">Processos Sem Etiqueta</div>
+    </div>
+
     <div class="colunas">
         <b>Colunas:</b><br><br>
         <label><input type="checkbox" checked id="c1" onchange="render()"> Processo</label>
@@ -317,6 +345,12 @@ button{
                 <li><b>❓ Tutorial:</b> Abre esta janela de ajuda.</li>
             </ul>
 
+            <p><b>Abas e Filtros Especiais:</b></p>
+            <ul>
+                <li>Processos normais ficam na aba <b>"Processos com Etiquetas"</b>.</li>
+                <li>Se um processo não tiver nenhuma etiqueta no PJe, o sistema agora o direciona automaticamente para a aba separada <b>"Processos Sem Etiqueta"</b>, atribuindo a ele uma etiqueta temporária de mesmo nome para permitir filtros. O tratamento fica isolado do fluxo principal.</li>
+            </ul>
+
             <p><b>Na tabela de processos:</b></p>
             <ul>
                 <li><b>1ª Caixa de Seleção (✔):</b> Ao marcá-la, a linha do processo fica "riscada", ajudando no controle visual do que já foi triado ou analisado.</li>
@@ -338,12 +372,36 @@ let dados=[];
 let filtrados=[];
 let filtros={mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
 let procAtualEdicao = null; 
+let abaAtual = 'com'; // 'com' ou 'sem' etiquetas
+
+// ================= CONTROLE DE ABAS
+function mudarAba(aba) {
+    abaAtual = aba;
+    document.getElementById("aba-com").classList.toggle("ativa", aba === 'com');
+    document.getElementById("aba-sem").classList.toggle("ativa", aba === 'sem');
+    
+    // Zera os filtros ao mudar de aba para evitar que filtros da aba anterior quebrem a visualização atual
+    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+    aplicar();
+}
+
+// Retorna apenas os dados correspondentes à aba ativa
+function getDadosAba() {
+    return dados.filter(d => {
+        if(abaAtual === 'com') {
+            return !d.etiqueta.includes("Sem Etiqueta");
+        } else {
+            return d.etiqueta.includes("Sem Etiqueta");
+        }
+    });
+}
 
 // ================= LIMPAR DADOS
 function limparDados(){
     dados = [];
     filtrados = [];
     filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+    abaAtual = 'com';
 
     document.getElementById("filtros").innerHTML = "";
     document.querySelector("thead").innerHTML = "";
@@ -351,6 +409,7 @@ function limparDados(){
     document.getElementById("total").innerText = "0";
     document.getElementById("nome-arquivo").innerText = "";
     document.getElementById("file").value = "";
+    document.getElementById("abas-container").style.display = "none";
 }
 
 // ================= DROP & ARQUIVO
@@ -370,23 +429,26 @@ file.onchange=e=>receberArquivo(e.target.files[0]);
 function receberArquivo(f) {
     if(!f) return;
     
-    // Mostra o nome do arquivo na tela
     document.getElementById("nome-arquivo").innerText = "📁 Arquivo: " + f.name;
     
-    // Verifica se é um arquivo JSON pelo nome
     if(f.name.toLowerCase().endsWith('.json')) {
         let reader = new FileReader();
         reader.onload = ev => {
             try {
                 let parsed = JSON.parse(ev.target.result);
-                // Suporte para versões antigas e novas
                 if(Array.isArray(parsed)){
                     dados = parsed;
                     filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+                    abaAtual = 'com';
                 } else {
                     dados = parsed.dados || [];
                     filtros = parsed.filtros || {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
+                    abaAtual = parsed.aba || 'com';
                 }
+                
+                // Atualiza a interface da aba
+                document.getElementById("aba-com").classList.toggle("ativa", abaAtual === 'com');
+                document.getElementById("aba-sem").classList.toggle("ativa", abaAtual === 'sem');
                 aplicar();
             } catch (err) {
                 alert("Erro ao ler o arquivo JSON.");
@@ -394,7 +456,6 @@ function receberArquivo(f) {
         };
         reader.readAsText(f);
     } else {
-        // Se não for JSON, processa como CSV
         processar(f);
     }
 }
@@ -408,6 +469,20 @@ function processar(f){
             let c=l.split(";");
             if(c.length < 2) return null; 
 
+            // =========================================================
+            // TRATAMENTO EXCLUSIVO PARA PROCESSOS SEM ETIQUETA:
+            // Lemos as etiquetas reais oriundas do arquivo CSV.
+            // Se o processo NÃO possuir nenhuma etiqueta, ele receberá a etiqueta temporária
+            // "Sem Etiqueta". Isso faz com que esse processo seja devidamente listado,
+            // que tenha botões de filtros correspondentes gerados, e que possa ser
+            // direcionado para a aba correta e separada no sistema (tratamento diferente).
+            // =========================================================
+            let arrayEtiquetas = (c[14]||"").split(",").map(e=>e.trim()).filter(e=>e);
+            
+            if(arrayEtiquetas.length === 0) {
+                arrayEtiquetas = ["Sem Etiqueta"];
+            }
+
             return{
                 proc:c[5],
                 autor:c[2],
@@ -416,21 +491,24 @@ function processar(f){
                 data:c[9],
                 mes:(c[9]||"").split("/")[1],
                 assunto:c[22],
-                etiqueta:(c[14]||"").split(",").map(e=>e.trim()).filter(e=>e),
+                etiqueta: arrayEtiquetas,
                 dias:parseInt(c[29])||0,
                 _riscado: false, 
                 _a_concluir: false,
                 notas: "" 
             };
         }).filter(d => d !== null); 
-        aplicar();
+        
+        // Sempre força abrir a primeira aba ao carregar um novo CSV
+        mudarAba('com');
     };
     reader.readAsText(f);
 }
 
 // ================= BASE DINÂMICA
 function base(ignorarFiltro = null){
-    return dados.filter(d=>
+    let dadosAba = getDadosAba();
+    return dadosAba.filter(d=>
         (ignorarFiltro === 'mes' || !filtros.mes.length || filtros.mes.includes(d.mes)) &&
         (ignorarFiltro === 'orgao' || !filtros.orgao.length || filtros.orgao.includes(d.orgao)) &&
         (ignorarFiltro === 'assunto' || !filtros.assunto.length || filtros.assunto.includes(d.assunto)) &&
@@ -441,7 +519,9 @@ function base(ignorarFiltro = null){
 
 // ================= FILTROS
 function criarFiltros(){
-    let meses=[...new Set(dados.map(d=>d.mes))].sort(); 
+    let dadosAba = getDadosAba();
+    
+    let meses=[...new Set(dadosAba.map(d=>d.mes))].sort(); 
     let orgaos=[...new Set(base('orgao').map(d=>d.orgao))];
     let assuntos=[...new Set(base('assunto').map(d=>d.assunto))].sort();
     let reus=[...new Set(base('reu').map(d=>d.reu))].sort();
@@ -531,12 +611,14 @@ function toggle(tipo,val,el){
 
 // ================= SELECIONAR TODOS
 function selecionarTodos(tipo){
+    let dadosAba = getDadosAba();
+
     if(tipo === 'mes'){
-        let todosMeses = [...new Set(dados.map(d=>d.mes))].sort();
+        let todosMeses = [...new Set(dadosAba.map(d=>d.mes))].sort();
         filtros.mes = [...todosMeses];
     } else if(tipo === 'servidor'){
         let etiquetasSet = new Set();
-        dados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+        dadosAba.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
         let todosServidores = [];
         [...etiquetasSet].forEach(e=>{
             if(e.toLowerCase().includes("servidor") || e.toLowerCase().includes("supervis")){
@@ -545,10 +627,10 @@ function selecionarTodos(tipo){
         });
         filtros.etiqueta = [...todosServidores];
     } else if(tipo === 'assunto'){
-        let todosAssuntos = [...new Set(dados.map(d=>d.assunto))].sort();
+        let todosAssuntos = [...new Set(dadosAba.map(d=>d.assunto))].sort();
         filtros.assunto = [...todosAssuntos];
     } else if(tipo === 'reu'){
-        let todosReus = [...new Set(dados.map(d=>d.reu))].sort();
+        let todosReus = [...new Set(dadosAba.map(d=>d.reu))].sort();
         filtros.reu = [...todosReus];
     }
     aplicar();
@@ -556,11 +638,13 @@ function selecionarTodos(tipo){
 
 // ================= LIMPAR FILTRO ESPECÍFICO
 function limparFiltroEspecifico(tipo){
+    let dadosAba = getDadosAba();
+
     if(tipo === 'mes'){
         filtros.mes = [];
     } else if(tipo === 'servidor'){
         let etiquetasSet = new Set();
-        dados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+        dadosAba.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
         let servidores = [];
         [...etiquetasSet].forEach(e=>{
             if(e.toLowerCase().includes("servidor") || e.toLowerCase().includes("supervis")){
@@ -578,7 +662,9 @@ function limparFiltroEspecifico(tipo){
 
 // ================= FILTRAR E ORDENAR POR DATA
 function aplicar(){
-    filtrados = dados.filter(d=>
+    let dadosAba = getDadosAba();
+    
+    filtrados = dadosAba.filter(d=>
         (!filtros.mes.length||filtros.mes.includes(d.mes)) &&
         (!filtros.orgao.length||filtros.orgao.includes(d.orgao)) &&
         (!filtros.assunto.length||filtros.assunto.includes(d.assunto)) &&
@@ -682,6 +768,8 @@ function fecharTutorial() {
 // ================= RENDER
 function render(){
     document.getElementById("total").innerText = filtrados.length;
+    document.getElementById("abas-container").style.display = dados.length > 0 ? "flex" : "none";
+    
     let c = col();
     let head=["Processo","Autor","Réu","Órgão","Data","Assunto","Etiqueta","Dias"];
 
@@ -783,7 +871,8 @@ function salvarJSON(){
 
     let dadosExportacao = {
         dados: dados,
-        filtros: filtros
+        filtros: filtros,
+        aba: abaAtual
     };
 
     let blob=new Blob([JSON.stringify(dadosExportacao)],{type:"application/json"});
@@ -818,13 +907,13 @@ function gerarPDF(){
     let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}`;
     let numeroRelatorio = `CONTJEFPE-TRI-${Date.now()}`; 
 
-    let texto="<b>Filtros aplicados:</b><br>";
+    let texto="<b>Aba Ativa:</b> " + (abaAtual === 'com' ? "Processos com Etiquetas" : "Processos Sem Etiqueta") + "<br><b>Filtros aplicados:</b><br>";
     if(filtros.mes.length) texto+="Mês: "+filtros.mes.join(", ")+"<br>";
     if(filtros.etiqueta.length) texto+="Etiquetas: "+filtros.etiqueta.join(", ")+"<br>";
     if(filtros.orgao.length) texto+="Órgão: "+filtros.orgao.join(", ")+"<br>";
     if(filtros.reu.length) texto+="Réu: "+filtros.reu.join(", ")+"<br>";
     if(filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
-    if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length && !filtros.reu.length) texto += "Nenhum (Todos os registros)<br>";
+    if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length && !filtros.reu.length) texto += "Nenhum (Todos os registros desta aba)<br>";
 
     let html = `
     <!DOCTYPE html>
