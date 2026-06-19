@@ -162,6 +162,18 @@ button{
     background-color: #1a5c38;
 }
 
+/* Botão discreto de copiar processo */
+.btn-copiar-proc {
+    cursor: pointer;
+    font-size: 13px;
+    margin-left: 6px;
+    opacity: 0.3;
+    transition: opacity 0.2s ease-in-out;
+}
+.btn-copiar-proc:hover {
+    opacity: 1;
+}
+
 </style>
 </head>
 
@@ -273,8 +285,6 @@ function processar(f){
 }
 
 // ================= BASE DINÂMICA
-// Restabelecida com a lógica original que cascateia os dados,
-// mas agora ela permite ignorar a própria categoria para possibilitar múltiplas seleções
 function base(ignorarFiltro = null){
     return dados.filter(d=>
         (ignorarFiltro === 'mes' || !filtros.mes.length || filtros.mes.includes(d.mes)) &&
@@ -307,8 +317,6 @@ function criarFiltros(){
     servidor.sort();
     outros.sort();
 
-    // A contagem usa a base que filtra TUDO (mês, órgão, assunto, réu),
-    // mas não filtra por etiqueta, garantindo que o número gerado esteja alinhado ao cenário filtrado.
     let baseContagem = base('etiqueta');
 
     let servidorHtml = servidor.map(v => {
@@ -322,11 +330,9 @@ function criarFiltros(){
         `;
     }).join("");
 
-    // Botões de controle para Mês
     let btnSelectAllMes = `<button class="btn-controle" onclick="selecionarTodos('mes')" title="Selecionar todos os meses">✓ Todos</button>`;
     let btnLimparMes = `<button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('mes')" title="Limpar filtro de mês">🧹 Limpar</button>`;
     
-    // Botões de controle para Servidor/Supervisão
     let btnSelectAllServ = `<button class="btn-controle" onclick="selecionarTodos('servidor')" title="Selecionar todos os servidores">✓ Todos</button>`;
     let btnLimparServ = `<button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('servidor')" title="Limpar filtro de servidores">🧹 Limpar</button>`;
 
@@ -397,7 +403,6 @@ function limparFiltroEspecifico(tipo){
     if(tipo === 'mes'){
         filtros.mes = [];
     } else if(tipo === 'servidor'){
-        // Remove apenas os servidores/supervisões do filtro de etiqueta
         let etiquetasSet = new Set();
         dados.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
         let servidores = [];
@@ -431,14 +436,23 @@ function col(){
 
 // ================= MARCAR LINHA (Ação Checkbox)
 function marcarLinha(proc, el) {
-    // Acha o processo na base geral e atualiza o estado
     let item = dados.find(x => x.proc === proc);
     if(item) item._riscado = el.checked;
     
-    // Altera a linha sem precisar recarregar toda a tabela
     let tr = el.closest('tr');
     tr.style.textDecoration = el.checked ? 'line-through' : 'none';
     tr.style.opacity = el.checked ? '0.6' : '1';
+}
+
+// ================= COPIAR PROCESSO
+function copiarTexto(texto, el) {
+    navigator.clipboard.writeText(texto).then(() => {
+        let original = el.innerText;
+        el.innerText = "✔️"; // Feedback visual temporário
+        setTimeout(() => el.innerText = original, 1500);
+    }).catch(err => {
+        console.error("Erro ao copiar o processo: ", err);
+    });
 }
 
 // ================= RENDER
@@ -456,7 +470,7 @@ function render(){
             <td style='text-align: center;'>
                 <input type="checkbox" ${d._riscado ? 'checked' : ''} onchange="marcarLinha('${d.proc}', this)">
             </td>
-            ${c[0]?`<td>${d.proc}</td>`:""}
+            ${c[0]?`<td>${d.proc} <span class="btn-copiar-proc" onclick="copiarTexto('${d.proc}', this)" title="Copiar número do processo">📋</span></td>`:""}
             ${c[1]?`<td>${d.autor}</td>`:""}
             ${c[2]?`<td>${d.reu}</td>`:""}
             ${c[3]?`<td>${d.orgao}</td>`:""}
@@ -472,7 +486,6 @@ function render(){
 function exportarExcel(){
     if(filtrados.length === 0) return alert("Não há dados para exportar.");
 
-    // Preparar dados para Excel
     let dadosExcel = filtrados.map(d => {
         let row = {};
         let c = col();
@@ -489,10 +502,8 @@ function exportarExcel(){
         return row;
     });
 
-    // Criar worksheet
     let ws = XLSX.utils.json_to_sheet(dadosExcel);
     
-    // Ajustar largura das colunas
     let colWidths = [];
     Object.keys(dadosExcel[0]).forEach(key => {
         let maxWidth = key.length;
@@ -505,11 +516,9 @@ function exportarExcel(){
     });
     ws['!cols'] = colWidths;
 
-    // Criar workbook
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Processos");
 
-    // Gerar nome do arquivo com data/hora
     let agora = new Date();
     let dia = String(agora.getDate()).padStart(2, '0');
     let mes = String(agora.getMonth() + 1).padStart(2, '0');
@@ -520,7 +529,6 @@ function exportarExcel(){
     
     let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}.xlsx`;
 
-    // Salvar arquivo
     XLSX.writeFile(wb, nomeArquivo);
 }
 
@@ -554,7 +562,6 @@ function carregarJSON(){
         reader.onload=ev=>{
             try {
                 dados = JSON.parse(ev.target.result);
-                // Limpa os filtros antes de aplicar os novos dados
                 filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[]};
                 aplicar();
             } catch (err) {
@@ -661,8 +668,12 @@ function gerarPDF(){
             font-size:10px; 
             color: #555;
         }
-        /* Oculta a coluna do checkbox no PDF gerado para ficar mais limpo (Opcional) */
+        
+        /* Oculta a coluna do checkbox no PDF */
         th:first-child, td:first-child { display: none; }
+        
+        /* Oculta o botão de copiar no PDF impresso para manter o visual limpo */
+        .btn-copiar-proc { display: none !important; }
         </style>
     </head>
     <body>
