@@ -314,6 +314,9 @@ button{
     <input type="file" id="file" hidden>
 
     <button onclick="gerarPDF()">📄 Gerar PDF</button>
+    <label style="font-size: 13px; cursor: pointer; margin-right: 15px; background: #eee; padding: 7px 10px; border-radius: 4px; border: 1px solid #ccc; display: inline-block; vertical-align: middle;">
+        <input type="checkbox" id="chk-notas-pdf"> Com anotações
+    </label>
     <button onclick="salvarJSON()">💾 Salvar JSON</button>
     <button onclick="carregarJSON()">📂 Carregar JSON</button>
     <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Excel</button>
@@ -355,6 +358,7 @@ button{
     <div class="modal-content">
         <h3 id="titulo-modal-notas">Anotações do Processo</h3>
         
+        <!-- Barra de Ferramentas Integrada para Formatação das Notas -->
         <div class="toolbar-notas">
             <button onclick="formatarNota('bold')" title="Negrito"><b>B</b></button>
             <button onclick="formatarNota('fontSize', '5')" title="Aumentar Fonte">A+</button>
@@ -365,6 +369,7 @@ button{
             <button onclick="formatarNota('removeFormat')" title="Limpar Formatação" style="font-weight: normal; font-size: 11px;">Limpar</button>
         </div>
         
+        <!-- Editor Rich Text Substituindo a Antiga Textarea -->
         <div id="texto-notas" class="editor-notas" contenteditable="true" placeholder="Digite as informações importantes sobre este processo aqui..."></div>
         
         <div style="text-align: right;">
@@ -386,7 +391,7 @@ button{
             
             <p><b>Para que servem os botões?</b></p>
             <ul>
-                <li><b>📄 Gerar PDF:</b> Exporta a visualização atual (com os filtros que você aplicou) para um arquivo PDF, pronto para impressão ou arquivamento.</li>
+                <li><b>📄 Gerar PDF:</b> Exporta a visualização atual (com os filtros que você aplicou) para um arquivo PDF, pronto para impressão ou arquivamento. Selecione "Com anotações" para anexar os detalhes.</li>
                 <li><b>💾 Salvar JSON:</b> Salva todo o seu progresso atual no seu computador. Isso inclui a listagem gerada, <b>os filtros selecionados no momento</b>, os processos que você "riscou" ou marcou como "a concluir", e todas as <b>anotações (notas)</b> feitas. Ideal para não perder o trabalho ao fechar a página.</li>
                 <li><b>📂 Carregar JSON:</b> Restaura um trabalho salvo anteriormente. Você pode clicar neste botão ou simplesmente <b>arrastar o arquivo JSON</b> para a área pontilhada no topo da tela.</li>
                 <li><b>📊 Exportar Excel:</b> Cria uma planilha do Excel (.xlsx) contendo todos os dados que estão visíveis na tela no momento, incluindo uma coluna extra com suas anotações.</li>
@@ -969,6 +974,28 @@ function gerarPDF(){
     if(filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
     if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length && !filtros.reu.length) texto += "Nenhum (Todos os registros desta aba)<br>";
 
+    // ----- NOVA LOGICA DE ANOTAÇÕES -----
+    let htmlNotas = "";
+    let chkNotas = document.getElementById("chk-notas-pdf");
+    if(chkNotas && chkNotas.checked) {
+        let processosComNotas = filtrados.filter(d => d.notas && d.notas.trim() !== "" && d.notas.trim() !== "<br>");
+        if(processosComNotas.length > 0) {
+            htmlNotas += "<div style='margin-top: 40px; page-break-before: auto;'></div>";
+            htmlNotas += "<h2 style='color: #1565c0; border-bottom: 2px solid #1565c0; padding-bottom: 5px; margin-bottom: 20px;'>Anotações dos Processos</h2>";
+            
+            processosComNotas.forEach(d => {
+                htmlNotas += `
+                <div style="margin-bottom: 15px; page-break-inside: avoid;">
+                    <h4 style="margin: 0 0 5px 0; background: #e3f2fd; padding: 6px 10px; border-left: 4px solid #1565c0; color: #000;">Processo: ${d.proc}</h4>
+                    <div style="font-size: 12px; color: #333; padding: 12px; border: 1px solid #ccc; background: #fff;">
+                        ${d.notas}
+                    </div>
+                </div>`;
+            });
+        }
+    }
+    // ------------------------------------
+
     let html = `
     <!DOCTYPE html>
     <html>
@@ -1040,6 +1067,8 @@ function gerarPDF(){
         <p>${texto}</p>
 
         ${document.querySelector("table").outerHTML}
+
+        ${htmlNotas}
 
         <div class="footer">
         Relatório emitido em: ${dataHora}<br><br>
