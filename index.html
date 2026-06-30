@@ -326,7 +326,7 @@ function mudarAba(aba) {
     document.getElementById("aba-andamento").classList.toggle("ativa", aba === 'andamento');
     document.getElementById("aba-concluidos").classList.toggle("ativa", aba === 'concluidos');
     
-    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]};
+    // A linha que zerava os filtros foi removida daqui!
     aplicar();
 }
 
