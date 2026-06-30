@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Contadoria dos JEFs- PE (Triagem)</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<style>
+
+body{
+    font-size: 14px; 
+    font-family:Arial;
+    background:#ddd;
+    margin:0;
+}
+
+header{
+    background:#1565c0;
+    color:white;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px;
+}
+
+header img{
+    height:50px;
+    background:white;
+    padding:3px;
+    border-radius:5px;
+}
+
+.container{padding:10px;}
+
+#drop{
+    border:2px dashed #aaa;
+    background:#f5f5f5;
+    text-align:center;
+    padding:20px;
+    cursor:pointer;
+}
+
+/* ABAS e CONTROLES SUPERIORES */
+.abas-wrapper {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 2px solid #1565c0;
+    margin-top: 20px;
+}
+
+.abas {
+    display: flex;
+    gap: 5px;
+}
+
+.aba {
+    padding: 10px 20px;
+    cursor: pointer;
+    background: #e0e0e0;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    color: #555;
+    transition: background 0.2s, color 0.2s;
+}
+
+.aba.ativa {
+    background: #1565c0;
+    color: white;
+    border-color: #1565c0;
+}
+.aba-destaque { color: #e65100; }
+.aba-destaque.ativa { color: #fff; background: #e65100; border-color: #e65100; }
+.aba-concluido { color: #2e7d32; }
+.aba-concluido.ativa { color: #fff; background: #2e7d32; border-color: #2e7d32; }
+
+#lbl-ocultar {
+    display: none;
+    font-size: 12px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #aaa;
+}
+
+/* FILTROS */
+.filtros-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+.filtro{ background:#eee; padding:10px; border:1px solid #bbb; }
+.filtro b { display: inline-block; margin-bottom: 15px; }
+.filtro button{ margin:3px; padding:5px; background:#ccc; border:none; cursor:pointer; }
+.filtro button.active{ background:#2196f3; color:white; }
+
+/* Botões de controle */
+.btn-controle { background:#4CAF50; color:white; font-size:11px; padding:3px 8px; margin-left:5px; border:none; cursor:pointer; border-radius:3px; }
+.btn-controle:hover { background:#45a049; }
+.btn-limpar-filtro { background:#f44336; color:white; font-size:11px; padding:3px 8px; margin-left:5px; border:none; cursor:pointer; border-radius:3px; }
+.btn-limpar-filtro:hover { background:#da190b; }
+
+/* COLUNAS */
+.colunas{ background:white; padding:10px; margin-top:10px; }
+
+/* TABELA */
+table{ width:100%; border-collapse:collapse; margin-top:10px; }
+th{ background:#64b5f6; color:white; }
+td,th{ border:1px solid #999; padding: 10px; text-align: left; }
+tbody tr:nth-child(even){background:#f1f1f1;}
+tbody tr:nth-child(odd){background:white;}
+
+button{ margin:5px; padding:8px; }
+
+/* Botões Principais */
+.btn-limpar { background-color: #ff5252; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.btn-limpar:hover { background-color: #d50000; }
+.btn-excel { background-color: #217346; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.btn-excel:hover { background-color: #1a5c38; }
+.btn-tutorial { background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.btn-tutorial:hover { background-color: #e68a00; }
+.btn-nuvem { background-color: #673ab7; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.btn-nuvem:hover { background-color: #512da8; }
+.btn-acao-proc { cursor: pointer; font-size: 14px; margin-left: 8px; display: inline-block; vertical-align: middle; transition: transform 0.1s ease; }
+.btn-acao-proc:hover { transform: scale(1.2); }
+
+.badge-anotado { background-color: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-left: 6px; border: 1px solid #c8e6c9; display: inline-block; vertical-align: middle; text-decoration: none !important; }
+
+/* Janelas Modais */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; }
+.modal-content { background: white; padding: 20px; border-radius: 5px; width: 80%; max-width: 650px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+.modal-content h3 { margin-top: 0; color: #1565c0; }
+.editor-notas { width: 100%; height: 180px; margin-top: 10px; margin-bottom: 15px; font-family: Arial; font-size: 14px; padding: 10px; box-sizing: border-box; border: 1px solid #aaa; border-radius: 4px; resize: vertical; background: white; overflow-y: auto; text-align: left; }
+
+.toolbar-notas { display: flex; gap: 4px; margin-top: 10px; background: #f5f5f5; padding: 6px; border: 1px solid #ccc; border-bottom: none; border-radius: 4px 4px 0 0; }
+.toolbar-notas button { margin: 0; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; background: white; border: 1px solid #bbb; border-radius: 3px; color: #333; }
+.toolbar-notas button:hover { background: #e0e0e0; }
+.editor-notas { margin-top: 0 !important; border-radius: 0 0 4px 4px !important; }
+.editor-notas:empty::before { content: attr(placeholder); color: #aaa; }
+
+.tutorial-texto { font-size: 14px; line-height: 1.6; color: #333; max-height: 60vh; overflow-y: auto; padding-right: 10px; }
+.tutorial-texto ul { padding-left: 20px; margin-top: 5px; margin-bottom: 15px;}
+.tutorial-texto li { margin-bottom: 8px; }
+.tutorial-texto p { margin-bottom: 5px; }
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <h3>Sistema de Filtragem Contadoria Judicial - Justiça Federal em Pernambuco</h3>
+</header>
+
+<div class="container">
+
+    <div style="background: #e3f2fd; border: 1px solid #1565c0; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+        <label style="font-weight: bold; color: #1565c0;">Link do Apps Script da Planilha Google (Cole aqui):</label>
+        <input type="text" id="url-script-sheets" style="width: 100%; padding: 6px; margin-top: 5px; box-sizing: border-box; border: 1px solid #aaa; border-radius: 3px;" placeholder="https://script.google.com/macros/s/.../exec" onchange="localStorage.setItem('url_sheets_contjef', this.value)">
+    </div>
+
+    <div id="drop">Arraste o CSV ou JSON salvo aqui (ou clique para selecionar)</div>
+    <input type="file" id="file" hidden>
+
+    <button onclick="gerarPDF()">📄 Gerar PDF</button>
+    <label style="font-size: 13px; cursor: pointer; margin-right: 15px; background: #eee; padding: 7px 10px; border-radius: 4px; border: 1px solid #ccc; display: inline-block; vertical-align: middle;">
+        <input type="checkbox" id="chk-notas-pdf"> Com anotações
+    </label>
+    <button onclick="salvarJSON()">💾 Salvar JSON</button>
+    <button onclick="carregarJSON()">📂 Carregar JSON</button>
+    <button class="btn-excel" onclick="exportarExcel()">📊 Exportar Excel</button>
+    <button class="btn-nuvem" onclick="sincronizarComGoogleSheets()">🌐 Sincronizar na Nuvem</button>
+    <button class="btn-limpar" onclick="limparDados()">🗑️ Limpar Dados</button>
+    <button class="btn-tutorial" onclick="abrirTutorial()">❓ Tutorial</button>
+
+    <h3>
+        Total filtrado: <span id="total">0</span>
+        <span id="nome-arquivo" style="color: #1565c0; font-size: 14px; margin-left: 20px; font-weight: normal;"></span>
+    </h3>
+
+    <div class="abas-wrapper">
+        <div class="abas" id="abas-container" style="display:none;">
+            <div class="aba ativa" id="aba-com" onclick="mudarAba('com')">Processos com Etiquetas</div>
+            <div class="aba" id="aba-sem" onclick="mudarAba('sem')">Processos Sem Etiqueta</div>
+            <div class="aba aba-destaque" id="aba-andamento" onclick="mudarAba('andamento')">Em Andamento ⏳</div>
+            <div class="aba aba-concluido" id="aba-concluidos" onclick="mudarAba('concluidos')">Concluídos ✔</div>
+        </div>
+        <label id="lbl-ocultar">
+            <input type="checkbox" id="chk-ocultar-concluidos" onchange="aplicar()"> Ocultar Concluídos na tela inicial
+        </label>
+    </div>
+
+    <div class="colunas">
+        <b>Colunas:</b><br><br>
+        <label><input type="checkbox" checked id="c1" onchange="aplicar()"> Processo</label>
+        <label><input type="checkbox" id="c2" onchange="aplicar()"> Autor</label>
+        <label><input type="checkbox" checked id="c3" onchange="aplicar()"> Réu</label>
+        <label><input type="checkbox" checked id="c4" onchange="aplicar()"> Órgão</label>
+        <label><input type="checkbox" checked id="c5" onchange="aplicar()"> Data</label>
+        <label><input type="checkbox" checked id="c6" onchange="aplicar()"> Assunto</label>
+        <label><input type="checkbox" id="c7" onchange="aplicar()"> Etiqueta</label>
+        <label><input type="checkbox" id="c8" onchange="aplicar()"> Dias</label>
+        <label><input type="checkbox" id="c9" onchange="aplicar()"> Classe Judicial</label>
+    </div>
+
+    <div id="filtros" class="filtros-grid"></div>
+
+    <table>
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+
+</div>
+
+<div id="modal-notas" class="modal-overlay">
+    <div class="modal-content">
+        <h3 id="titulo-modal-notas">Anotações do Processo</h3>
+        
+        <div class="toolbar-notas">
+            <button onclick="formatarNota('bold')" title="Negrito"><b>B</b></button>
+            <button onclick="formatarNota('fontSize', '5')" title="Aumentar Fonte">A+</button>
+            <button onclick="formatarNota('fontSize', '3')" title="Tamanho Padrão">A-</button>
+            <button onclick="formatarNota('foreColor', '#1565c0')" style="color: #1565c0;" title="Cor Azul">■ Azul</button>
+            <button onclick="formatarNota('foreColor', '#ff5252')" style="color: #ff5252;" title="Cor Vermelha">■ Vermelho</button>
+            <button onclick="formatarNota('foreColor', '#1a5c38')" style="color: #1a5c38;" title="Cor Verde Escuro">■ Verde</button>
+            <button onclick="formatarNota('removeFormat')" title="Limpar Formatação" style="font-weight: normal; font-size: 11px;">Limpar</button>
+        </div>
+        
+        <div id="texto-notas" class="editor-notas" contenteditable="true" placeholder="Digite as informações importantes sobre este processo aqui..."></div>
+        
+        <div style="text-align: right;">
+            <button class="btn-limpar" onclick="fecharNotas()">Cancelar</button>
+            <button class="btn-controle" onclick="salvarNotas()" style="font-size: 14px; padding: 8px 15px;">💾 Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-tutorial" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="color: #ff9800;">❓ Tutorial do Sistema</h3>
+        
+        <div class="tutorial-texto">
+            <p><b>Origem dos Dados</b><br>
+            Carregue um arquivo <b>CSV</b> baixado do <b>PJE2 X</b> (utilizando a extensão PJE+R) ou restaure um trabalho através do botão <b>Carregar JSON</b>.</p>
+            
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+            <p><b>Filtros Dinâmicos e Colunas</b></p>
+            <ul>
+                <li>O sistema possui <b>Filtros Inteligentes</b>: as opções de <i>Réu</i>, <i>Classe Judicial</i> e <i>Assunto</i> <b>só aparecem na tela se a coluna correspondente estiver marcada</b>. Se você desmarcar a coluna para economizar espaço, o filtro desaparece e a restrição dele é ignorada automaticamente.</li>
+            </ul>
+
+            <p><b>Abas e Gestão de Fluxo</b></p>
+            <ul>
+                <li><b>Processos com/sem Etiquetas:</b> São suas abas estruturais de triagem principal.</li>
+                <li><b>Em Andamento ⏳ / Concluídos ✔:</b> São "pastas de atalho". Ao marcar o status de um processo, ele é espelhado automaticamente nestas abas, concentrando o que precisa de atenção ou o que já foi feito.</li>
+                <li><b>Ocultar Concluídos:</b> Utilize a caixa de seleção acima da tabela para remover visualmente da tela principal os processos que já foram riscados (Concluídos), mantendo seu fluxo de trabalho limpo.</li>
+            </ul>
+
+            <p><b>Ações na Tabela</b></p>
+            <ul>
+                <li><b>✔ Concluir:</b> Risca o processo visualmente e o categoriza como finalizado.</li>
+                <li><b>⏳ Em Andamento:</b> Destaca a linha em laranja/vermelho, sinalizando pendência de providência posterior.</li>
+                <li><b>📋 Copiar:</b> Copia o número do processo com um clique.</li>
+                <li><b>📝 Anotações:</b> Abre o editor de texto formatado. Processos que recebem anotações ganham o selo verde "[Anotado]".</li>
+            </ul>
+
+            <p><b>Salvamento, Nuvem e Exportação</b></p>
+            <ul>
+                <li><b>💾 Salvar / Carregar JSON:</b> A função mais importante para pausar o trabalho. Salva tudo (listagem, filtros ativos, marcações de andamento/conclusão e notas digitadas) num arquivo em seu computador para retomar depois de onde parou.</li>
+                <li><b>🌐 Sincronizar na Nuvem:</b> Transmite em lote os processos atualmente visíveis na sua tela para o banco de dados centralizado no Google Sheets.</li>
+                <li><b>📄 PDF / 📊 Excel:</b> Exportam os dados exatamente como estão filtrados na tela atual. No PDF, você pode incluir as anotações ao final do documento.</li>
+            </ul>
+        </div>
+
+        <div style="text-align: right; margin-top: 15px;">
+            <button class="btn-tutorial" onclick="fecharTutorial()" style="font-size: 14px; padding: 8px 20px;">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+let dados=[];
+let filtrados=[];
+let filtros={mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]};
+let procAtualEdicao = null; 
+let abaAtual = 'com'; 
+
+window.onload = function() {
+    let savedUrl = localStorage.getItem('url_sheets_contjef');
+    if(savedUrl) {
+        document.getElementById('url-script-sheets').value = savedUrl;
+    }
+}
+
+// ================= SINCRONIZAÇÃO COM GOOGLE SHEETS
+function sincronizarComGoogleSheets() {
+    let urlScript = document.getElementById('url-script-sheets').value.trim();
+    if(!urlScript) return alert("Por favor, cole o link gerado pelo Google Apps Script na caixa de texto superior antes de sincronizar!");
+    if(filtrados.length === 0) return alert("Não há registros na tabela filtrada atual para sincronizar.");
+    if(!confirm(`Deseja enviar os ${filtrados.length} processos visíveis na tela para o banco de dados centralizado?`)) return;
+
+    let btnNuvem = document.querySelector(".btn-nuvem");
+    let textoOriginal = btnNuvem.innerText;
+    btnNuvem.innerText = "⏳ Sincronizando... Aguarde";
+    btnNuvem.disabled = true;
+
+    fetch(urlScript, {
+        method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(filtrados)
+    })
+    .then(() => { alert("Dados transmitidos com sucesso para a fila do Google Sheets!\nA planilha processará as linhas em segundo plano."); })
+    .catch(err => { console.error(err); alert("Erro na transmissão. Verifique se o link está correto."); })
+    .finally(() => { btnNuvem.innerText = textoOriginal; btnNuvem.disabled = false; });
+}
+
+// ================= CONTROLE DE ABAS
+function mudarAba(aba) {
+    abaAtual = aba;
+    document.getElementById("aba-com").classList.toggle("ativa", aba === 'com');
+    document.getElementById("aba-sem").classList.toggle("ativa", aba === 'sem');
+    document.getElementById("aba-andamento").classList.toggle("ativa", aba === 'andamento');
+    document.getElementById("aba-concluidos").classList.toggle("ativa", aba === 'concluidos');
+    
+    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]};
+    aplicar();
+}
+
+function getDadosAba() {
+    let ocultarConcluidos = document.getElementById("chk-ocultar-concluidos").checked;
+
+    return dados.filter(d => {
+        if (abaAtual === 'andamento') {
+            return d._a_concluir === true;
+        } else if (abaAtual === 'concluidos') {
+            return d._riscado === true;
+        } else if (abaAtual === 'com') {
+            if (ocultarConcluidos && d._riscado) return false;
+            return !d.etiqueta.includes("Sem Etiqueta");
+        } else {
+            if (ocultarConcluidos && d._riscado) return false;
+            return d.etiqueta.includes("Sem Etiqueta");
+        }
+    });
+}
+
+// ================= LIMPAR DADOS
+function limparDados(){
+    dados = []; filtrados = [];
+    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]}; abaAtual = 'com';
+    document.getElementById("filtros").innerHTML = ""; document.querySelector("thead").innerHTML = "";
+    document.querySelector("tbody").innerHTML = ""; document.getElementById("total").innerText = "0";
+    document.getElementById("nome-arquivo").innerText = ""; document.getElementById("file").value = "";
+    document.getElementById("abas-container").style.display = "none";
+    document.getElementById("lbl-ocultar").style.display = "none";
+}
+
+// ================= DROP & ARQUIVO
+const drop=document.getElementById("drop"); const file=document.getElementById("file");
+drop.onclick=()=>file.click(); drop.ondragover=e=>e.preventDefault();
+drop.ondrop=e=>{ e.preventDefault(); receberArquivo(e.dataTransfer.files[0]); };
+file.onchange=e=>receberArquivo(e.target.files[0]);
+
+function receberArquivo(f) {
+    if(!f) return;
+    document.getElementById("nome-arquivo").innerText = "📁 Arquivo: " + f.name;
+    
+    if(f.name.toLowerCase().endsWith('.json')) {
+        let reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                let parsed = JSON.parse(ev.target.result);
+                if(Array.isArray(parsed)){
+                    dados = parsed; abaAtual = 'com';
+                } else {
+                    dados = parsed.dados || []; abaAtual = parsed.aba || 'com';
+                }
+                filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]};
+                
+                dados.forEach(d => {
+                    if (d.classejudicial === undefined) d.classejudicial = "";
+                    if (d._riscado === undefined) d._riscado = false;
+                    if (d._a_concluir === undefined) d._a_concluir = false;
+                    if (d.notas === undefined) d.notas = "";
+                    if (!d.etiqueta) d.etiqueta = ["Sem Etiqueta"];
+                });
+                
+                document.getElementById("aba-com").classList.toggle("ativa", abaAtual === 'com');
+                document.getElementById("aba-sem").classList.toggle("ativa", abaAtual === 'sem');
+                document.getElementById("aba-andamento").classList.toggle("ativa", abaAtual === 'andamento');
+                document.getElementById("aba-concluidos").classList.toggle("ativa", abaAtual === 'concluidos');
+                aplicar();
+            } catch (err) { alert("Erro ao ler o arquivo JSON."); }
+        };
+        reader.readAsText(f);
+    } else {
+        processar(f);
+    }
+}
+
+// ================= PROCESSAR CSV
+function processar(f){
+    let reader=new FileReader();
+    reader.onload=e=>{
+        let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
+        if(linhas.length === 0) return;
+
+        let cabecalho = linhas[0].split(";").map(h => h.trim());
+        let idxClasse = cabecalho.indexOf("classeJudicial");
+        if(idxClasse === -1) idxClasse = cabecalho.findIndex(h => h.toLowerCase() === "classejudicial");
+        if(idxClasse === -1) idxClasse = 4;
+
+        dados=linhas.slice(1).map(l=>{
+            let c=l.split(";");
+            if(c.length < 2) return null; 
+
+            let arrayEtiquetas = (c[14]||"").split(",").map(e=>e.trim()).filter(e=>e);
+            if(arrayEtiquetas.length === 0) arrayEtiquetas = ["Sem Etiqueta"];
+
+            return{
+                proc:c[5], autor:c[2], reu:c[3], orgao:c[8], data:c[9],
+                mes:(c[9]||"").split("/")[1], assunto:c[22], etiqueta: arrayEtiquetas,
+                dias:parseInt(c[29])||0, classejudicial: c[idxClasse] ? c[idxClasse].trim() : "",
+                _riscado: false, _a_concluir: false, notas: "" 
+            };
+        }).filter(d => d !== null); 
+        mudarAba('com');
+    };
+    reader.readAsText(f);
+}
+
+// ================= BASE DINÂMICA
+function base(ignorarFiltro = null){
+    let dadosAba = getDadosAba();
+    let chkReu = document.getElementById("c3").checked;
+    let chkClasse = document.getElementById("c9").checked;
+    let chkAssunto = document.getElementById("c6").checked;
+
+    return dadosAba.filter(d=>
+        (ignorarFiltro === 'mes' || !filtros.mes.length || filtros.mes.includes(d.mes)) &&
+        (ignorarFiltro === 'orgao' || !filtros.orgao.length || filtros.orgao.includes(d.orgao)) &&
+        (ignorarFiltro === 'assunto' || !chkAssunto || !filtros.assunto.length || filtros.assunto.includes(d.assunto)) &&
+        (ignorarFiltro === 'reu' || !chkReu || !filtros.reu.length || filtros.reu.includes(d.reu)) &&
+        (ignorarFiltro === 'classejudicial' || !chkClasse || !filtros.classejudicial.length || filtros.classejudicial.includes(d.classejudicial)) &&
+        (ignorarFiltro === 'etiqueta' || !filtros.etiqueta.length || filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
+    );
+}
+
+// ================= FILTROS
+function criarFiltros(){
+    let dadosAba = getDadosAba();
+    let meses=[...new Set(dadosAba.map(d=>d.mes))].sort(); 
+    let orgaos=[...new Set(base('orgao').map(d=>d.orgao))];
+    let assuntos=[...new Set(base('assunto').map(d=>d.assunto))].sort();
+    let reus=[...new Set(base('reu').map(d=>d.reu))].sort();
+    let classes=[...new Set(base('classejudicial').map(d=>d.classejudicial))].sort().filter(v => v);
+
+    let etiquetasSet=new Set(); base('etiqueta').forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+    let servidor=[], outros=[];
+    [...etiquetasSet].forEach(e=>{
+        if(e.toLowerCase().includes("servidor")||e.toLowerCase().includes("supervis")) servidor.push(e);
+        else outros.push(e);
+    });
+
+    servidor.sort(); outros.sort();
+    let baseContagem = base('etiqueta');
+
+    let servidorHtml = servidor.map(v => {
+        let qtd = baseContagem.filter(d => d.etiqueta.includes(v)).length;
+        let ativo = filtros["etiqueta"].includes(v) ? "active" : "";
+        return `<div style="display: inline-block; text-align: center; margin: 3px;">
+                <button class="${ativo}" style="margin: 0; margin-bottom: 2px;" onclick="toggle('etiqueta','${v}',this)">${v}</button><br>
+                <span style="color: darkblue; font-size: 12px; font-weight: bold;">${qtd}</span></div>`;
+    }).join("");
+
+    let htmlFiltros = `
+        <div class="filtro"><b>Mês</b> <button class="btn-controle" onclick="selecionarTodos('mes')">✓ Todos</button> <button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('mes')">🧹 Limpar</button><br>${meses.map(v=>btn("mes",v)).join("")}</div>
+        <div class="filtro"><b>Órgão</b><br>${orgaos.map(v=>btn("orgao",v)).join("")}</div>
+        <div class="filtro"><b>Servidor / Supervisão</b> <button class="btn-controle" onclick="selecionarTodos('servidor')">✓ Todos</button> <button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('servidor')">🧹 Limpar</button><br>${servidorHtml}</div>
+        <div class="filtro"><b>Outras etiquetas</b><br>${outros.map(v=>btn("etiqueta",v)).join("")}</div>
+    `;
+    if (document.getElementById("c3").checked) htmlFiltros += `<div class="filtro" style="grid-column: span 2;"><b>Polo Passivo / Réu</b> <button class="btn-controle" onclick="selecionarTodos('reu')">✓ Todos</button> <button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('reu')">🧹 Limpar</button><br>${reus.map(v=>btn("reu",v)).join("")}</div>`;
+    if (document.getElementById("c9").checked) htmlFiltros += `<div class="filtro" style="grid-column: span 2;"><b>Classe Judicial</b> <button class="btn-controle" onclick="selecionarTodos('classejudicial')">✓ Todos</button> <button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('classejudicial')">🧹 Limpar</button><br>${classes.map(v=>btn("classejudicial",v)).join("")}</div>`;
+    if (document.getElementById("c6").checked) htmlFiltros += `<div class="filtro" style="grid-column: span 2;"><b>Assunto</b> <button class="btn-controle" onclick="selecionarTodos('assunto')">✓ Todos</button> <button class="btn-limpar-filtro" onclick="limparFiltroEspecifico('assunto')">🧹 Limpar</button><br>${assuntos.map(v=>btn("assunto",v)).join("")}</div>`;
+
+    document.getElementById("filtros").innerHTML = htmlFiltros;
+}
+
+// ================= BOTÕES FILTRO E AÇÕES
+function btn(tipo, valor){ let ativo = filtros[tipo].includes(valor) ? "active" : ""; return `<button class="${ativo}" onclick="toggle('${tipo}','${valor}',this)">${valor}</button>`; }
+function toggle(tipo,val,el){ if(filtros[tipo].includes(val)) filtros[tipo] = filtros[tipo].filter(v=>v!==val); else filtros[tipo].push(val); aplicar(); }
+function selecionarTodos(tipo){
+    let dadosAba = getDadosAba();
+    if(tipo === 'mes') filtros.mes = [...new Set(dadosAba.map(d=>d.mes))].sort();
+    else if(tipo === 'servidor'){
+        let etiquetasSet = new Set(); dadosAba.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+        filtros.etiqueta = [...etiquetasSet].filter(e => e.toLowerCase().includes("servidor") || e.toLowerCase().includes("supervis"));
+    }
+    else if(tipo === 'assunto') filtros.assunto = [...new Set(dadosAba.map(d=>d.assunto))].sort();
+    else if(tipo === 'reu') filtros.reu = [...new Set(dadosAba.map(d=>d.reu))].sort();
+    else if(tipo === 'classejudicial') filtros.classejudicial = [...new Set(dadosAba.map(d=>d.classejudicial))].sort().filter(v => v);
+    aplicar();
+}
+function limparFiltroEspecifico(tipo){
+    let dadosAba = getDadosAba();
+    if(tipo === 'mes') filtros.mes = [];
+    else if(tipo === 'servidor'){
+        let etiquetasSet = new Set(); dadosAba.forEach(d=>d.etiqueta.forEach(e=>etiquetasSet.add(e)));
+        let servidores = [...etiquetasSet].filter(e => e.toLowerCase().includes("servidor") || e.toLowerCase().includes("supervis"));
+        filtros.etiqueta = filtros.etiqueta.filter(e => !servidores.includes(e));
+    }
+    else if(tipo === 'assunto') filtros.assunto = [];
+    else if(tipo === 'reu') filtros.reu = [];
+    else if(tipo === 'classejudicial') filtros.classejudicial = [];
+    aplicar();
+}
+
+// ================= APLICAR E ORDENAR
+function aplicar(){
+    let dadosAba = getDadosAba();
+    let chkReu = document.getElementById("c3").checked;
+    let chkClasse = document.getElementById("c9").checked;
+    let chkAssunto = document.getElementById("c6").checked;
+
+    filtrados = dadosAba.filter(d=>
+        (!filtros.mes.length||filtros.mes.includes(d.mes)) &&
+        (!filtros.orgao.length||filtros.orgao.includes(d.orgao)) &&
+        (!chkAssunto || !filtros.assunto.length||filtros.assunto.includes(d.assunto)) &&
+        (!chkClasse || !filtros.classejudicial.length||filtros.classejudicial.includes(d.classejudicial)) &&
+        (!chkReu || !filtros.reu.length||filtros.reu.includes(d.reu)) &&
+        (!filtros.etiqueta.length||filtros.etiqueta.some(e=>d.etiqueta.includes(e)))
+    );
+
+    filtrados.sort((a, b) => {
+        const formatarDataParaNumero = (dataStr) => {
+            if (!dataStr) return 0;
+            let partesTempo = dataStr.split(" "); 
+            let dma = partesTempo[0].split("/");
+            if (dma.length < 3) return 0;
+            return parseInt(dma[2] + dma[1].padStart(2, '0') + dma[0].padStart(2, '0') + (partesTempo[1] ? partesTempo[1].replace(/:/g, "").padEnd(6, '0') : "000000"));
+        };
+        return formatarDataParaNumero(a.data) - formatarDataParaNumero(b.data);
+    });
+
+    criarFiltros();
+    render();
+}
+
+function col(){ return [c1.checked,c2.checked,c3.checked,c4.checked,c5.checked,c6.checked,c7.checked,c8.checked,c9.checked]; }
+
+// ================= AÇÕES NA TABELA
+function marcarLinha(proc, el) {
+    let item = dados.find(x => x.proc === proc);
+    if(item) item._riscado = el.checked;
+    
+    let ocultarConcluidos = document.getElementById("chk-ocultar-concluidos").checked;
+
+    if (abaAtual === 'concluidos' || (ocultarConcluidos && (abaAtual === 'com' || abaAtual === 'sem'))) {
+        aplicar(); // Atualiza a tela inteira removendo a linha
+    } else {
+        let tr = el.closest('tr');
+        tr.style.textDecoration = el.checked ? 'line-through' : 'none';
+        tr.style.opacity = el.checked ? '0.6' : '1';
+    }
+}
+
+function marcarAConcluir(proc, el) {
+    let item = dados.find(x => x.proc === proc);
+    if(item) item._a_concluir = el.checked;
+    
+    if (abaAtual === 'andamento') aplicar();
+    else el.closest('tr').style.color = el.checked ? '#e65100' : 'inherit';
+}
+
+function copiarTexto(texto, el) {
+    navigator.clipboard.writeText(texto).then(() => {
+        let original = el.innerText; el.innerText = "✔️"; 
+        setTimeout(() => el.innerText = original, 1500);
+    }).catch(err => console.error("Erro ao copiar", err));
+}
+
+// ================= GESTÃO DE NOTAS
+function formatarNota(comando, valor = null) { document.execCommand(comando, false, valor); document.getElementById("texto-notas").focus(); }
+function abrirNotas(proc) {
+    let item = dados.find(x => x.proc === proc);
+    if(item) {
+        procAtualEdicao = proc;
+        document.getElementById("titulo-modal-notas").innerText = "Anotações - Processo: " + proc;
+        document.getElementById("texto-notas").innerHTML = item.notas || ""; 
+        document.getElementById("modal-notas").style.display = "flex";
+    }
+}
+function fecharNotas() { document.getElementById("modal-notas").style.display = "none"; procAtualEdicao = null; }
+function salvarNotas() {
+    if(procAtualEdicao) {
+        let item = dados.find(x => x.proc === procAtualEdicao);
+        if(item) item.notas = document.getElementById("texto-notas").innerHTML; 
+        fecharNotas(); render(); 
+    }
+}
+
+function abrirTutorial() { document.getElementById("modal-tutorial").style.display = "flex"; }
+function fecharTutorial() { document.getElementById("modal-tutorial").style.display = "none"; }
+
+// ================= RENDER
+function render(){
+    document.getElementById("total").innerText = filtrados.length;
+    let exibirPainel = dados.length > 0;
+    document.getElementById("abas-container").style.display = exibirPainel ? "flex" : "none";
+    document.getElementById("lbl-ocultar").style.display = exibirPainel ? "inline-block" : "none";
+    
+    let c = col();
+    let head=["Processo","Autor","Réu","Órgão","Data","Assunto","Etiqueta","Dias","Classe Judicial"];
+
+    document.querySelector("thead").innerHTML =
+        "<tr><th style='width: 55px; text-align: center;' title='Riscar/Concluir | Em Andamento'>✔ | ⏳</th>"+head.map((h,i)=>c[i]?`<th>${h}</th>`:"").join("")+"</tr>";
+
+    document.querySelector("tbody").innerHTML =
+        filtrados.map(d=>{
+            let temNotaValida = d.notas && d.notas.trim() !== "" && d.notas.trim() !== "<br>";
+            let badgeAnotado = temNotaValida ? `<span class="badge-anotado">Anotado</span>` : "";
+            return `
+            <tr style="text-decoration: ${d._riscado ? 'line-through' : 'none'}; opacity: ${d._riscado ? '0.6' : '1'}; color: ${d._a_concluir ? '#e65100' : 'inherit'};">
+                <td style='text-align: center; white-space: nowrap;'>
+                    <input type="checkbox" title="Concluído ✔" ${d._riscado ? 'checked' : ''} onchange="marcarLinha('${d.proc}', this)">
+                    <input type="checkbox" title="Em Andamento ⏳" ${d._a_concluir ? 'checked' : ''} onchange="marcarAConcluir('${d.proc}', this)" style="accent-color: #ff5722; margin-left: 3px;">
+                </td>
+                ${c[0]?`<td style="white-space: nowrap;">${d.proc} ${badgeAnotado}
+                    <span class="btn-acao-proc" onclick="copiarTexto('${d.proc}', this)" title="Copiar número">📋</span>
+                    <span class="btn-acao-proc" onclick="abrirNotas('${d.proc}')" title="Anotações">📝</span>
+                </td>`:""}
+                ${c[1]?`<td>${d.autor}</td>`:""} ${c[2]?`<td>${d.reu}</td>`:""} ${c[3]?`<td>${d.orgao}</td>`:""}
+                ${c[4]?`<td>${d.data}</td>`:""} ${c[5]?`<td>${d.assunto}</td>`:""} ${c[6]?`<td>${d.etiqueta.join(", ")}</td>`:""}
+                ${c[7]?`<td>${d.dias}</td>`:""} ${c[8]?`<td>${d.classejudicial}</td>`:""}
+            </tr>`;
+        }).join("");
+}
+
+// ================= EXPORTAR EXCEL
+function exportarExcel(){
+    if(filtrados.length === 0) return alert("Não há dados para exportar.");
+    let dadosExcel = filtrados.map(d => {
+        let row = {}; let c = col();
+        if(c[0]) row["Processo"] = d.proc; if(c[1]) row["Autor"] = d.autor; if(c[2]) row["Réu"] = d.reu;
+        if(c[3]) row["Órgão"] = d.orgao; if(c[4]) row["Data"] = d.data; if(c[5]) row["Assunto"] = d.assunto;
+        if(c[6]) row["Etiqueta"] = d.etiqueta.join(", "); if(c[7]) row["Dias"] = d.dias; if(c[8]) row["Classe Judicial"] = d.classejudicial;
+        if(d.notas && d.notas.trim() !== "") row["Anotações"] = d.notas;
+        return row;
+    });
+
+    let ws = XLSX.utils.json_to_sheet(dadosExcel);
+    let colWidths = [];
+    Object.keys(dadosExcel[0]).forEach(key => {
+        let maxWidth = key.length;
+        dadosExcel.forEach(row => { if(row[key] && String(row[key]).length > maxWidth) maxWidth = String(row[key]).length; });
+        colWidths.push({wch: Math.min(maxWidth + 2, 50)});
+    });
+    ws['!cols'] = colWidths;
+    let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Processos");
+
+    let agora = new Date(), dia = String(agora.getDate()).padStart(2, '0'), mes = String(agora.getMonth() + 1).padStart(2, '0'), ano = agora.getFullYear(), hora = String(agora.getHours()).padStart(2, '0'), min = String(agora.getMinutes()).padStart(2, '0'), seg = String(agora.getSeconds()).padStart(2, '0');
+    XLSX.writeFile(wb, `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}.xlsx`);
+}
+
+// ================= SAVE/LOAD JSON LOCAL
+function salvarJSON(){
+    if(dados.length === 0) return alert("Não há dados para salvar.");
+    let agora = new Date(), dia = String(agora.getDate()).padStart(2, '0'), mes = String(agora.getMonth() + 1).padStart(2, '0'), ano = agora.getFullYear(), hora = String(agora.getHours()).padStart(2, '0'), min = String(agora.getMinutes()).padStart(2, '0'), seg = String(agora.getSeconds()).padStart(2, '0');
+    let blob=new Blob([JSON.stringify({ dados: dados, filtros: filtros, aba: abaAtual })],{type:"application/json"});
+    let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}.json`; a.click();
+}
+function carregarJSON(){
+    let input=document.createElement("input"); input.type="file"; input.accept=".json";
+    input.onchange=e=>{ receberArquivo(e.target.files[0]); }; input.click();
+}
+
+// ================= GERAR PDF
+function gerarPDF(){
+    if(filtrados.length === 0) return alert("Não há dados para gerar o PDF.");
+    let agora = new Date(), dia = String(agora.getDate()).padStart(2, '0'), mes = String(agora.getMonth() + 1).padStart(2, '0'), ano = agora.getFullYear(), hora = String(agora.getHours()).padStart(2, '0'), min = String(agora.getMinutes()).padStart(2, '0'), seg = String(agora.getSeconds()).padStart(2, '0');
+    let dataHora = `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`; let nomeArquivo = `RELATORIO-TRIAGEM-CONTJEF-${dia}${mes}${ano}-${hora}${min}${seg}`;
+
+    let nomeAbaPdf = abaAtual === 'com' ? "Processos com Etiquetas" : abaAtual === 'sem' ? "Processos Sem Etiqueta" : abaAtual === 'concluidos' ? "Processos Concluídos" : "Processos Em Andamento";
+    let texto="<b>Aba Ativa:</b> " + nomeAbaPdf + "<br><b>Filtros aplicados:</b><br>";
+    if(filtros.mes.length) texto+="Mês: "+filtros.mes.join(", ")+"<br>";
+    if(filtros.etiqueta.length) texto+="Etiquetas: "+filtros.etiqueta.join(", ")+"<br>";
+    if(filtros.orgao.length) texto+="Órgão: "+filtros.orgao.join(", ")+"<br>";
+    if(document.getElementById("c3").checked && filtros.reu.length) texto+="Réu: "+filtros.reu.join(", ")+"<br>";
+    if(document.getElementById("c9").checked && filtros.classejudicial.length) texto+="Classe Judicial: "+filtros.classejudicial.join(", ")+"<br>";
+    if(document.getElementById("c6").checked && filtros.assunto.length) texto+="Assunto: "+filtros.assunto.join(", ")+"<br>";
+    if(!filtros.mes.length && !filtros.etiqueta.length && !filtros.orgao.length && !filtros.assunto.length && !filtros.reu.length && !filtros.classejudicial.length) texto += "Nenhum<br>";
+
+    let htmlNotas = "";
+    if(document.getElementById("chk-notas-pdf")?.checked) {
+        let procesosComNotas = filtrados.filter(d => d.notas && d.notas.trim() !== "" && d.notas.trim() !== "<br>");
+        if(procesosComNotas.length > 0) {
+            htmlNotas += "<div style='margin-top: 40px;'></div><h2 style='color: #1565c0; border-bottom: 2px solid #1565c0; padding-bottom: 5px; margin-bottom: 20px;'>Anotações dos Processos</h2>";
+            procesosComNotas.forEach(d => {
+                let statusBadge = d._riscado ? `<span style="color: #8b0000; font-weight: bold; margin-left: 10px;">[Concluído]</span>` : `<span style="color: #ffff00; background: #000000; padding: 2px 6px; font-weight: bold; margin-left: 10px; border-radius: 3px; font-size: 11px; display: inline-block; vertical-align: middle;">Em Andamento</span>`;
+                htmlNotas += `<div style="margin-bottom: 15px; page-break-inside: avoid;"><h4 style="margin: 0 0 5px 0; background: #e3f2fd; padding: 6px 10px; border-left: 4px solid #1565c0; color: #000;">Processo: ${d.proc} | Autor: ${d.autor} ${statusBadge}</h4><div style="font-size: 12px; color: #333; padding: 12px; border: 1px solid #ccc; background: #fff;">${d.notas}</div></div>`;
+            });
+        }
+    }
+
+    let html = `<!DOCTYPE html><html><head><title>${nomeArquivo}</title><style>*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}body{font-family:Arial, sans-serif;font-size:12px;}.header{background:#1565c0;color:white;padding:10px;}.header h3{font-size:18px;margin:0;}.header p{font-size:14px;margin:0;}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:10px;}th{background:#64b5f6 !important;color:white;}td,th{border:1px solid #ccc;padding:8px;text-align:left;}tr:nth-child(even){background:#f1f1f1 !important;}.footer{margin-top:20px;font-size:10px;color:#555;}th:first-child,td:first-child{display:none;}.btn-acao-proc,.badge-anotado{display:none !important;}</style></head><body><div class="header"><div><h3>Contadoria Judicial</h3><p>Justiça Federal em Pernambuco</p></div></div><h2>Relatório de Processos</h2><p><b>Nº do Relatório:</b> CONTJEFPE-TRI-${Date.now()}</p><p>${texto}</p>${document.querySelector("table").outerHTML}${htmlNotas}<div class="footer">Emitido em: ${dataHora}</div></body></html>`;
+    let win = window.open("", "_blank"); win.document.write(html); win.document.close(); win.document.title = nomeArquivo; win.focus();
+    setTimeout(() => { win.print(); }, 250);
+}
+
+</script>
+
+</body>
+</html>
