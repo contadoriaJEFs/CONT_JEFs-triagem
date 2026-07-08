@@ -354,35 +354,105 @@ function receberArquivo(f) {
 
 // ================= PROCESSAR CSV
 function processar(f){
-    // ✅ CORREÇÃO: Zera os filtros para não misturar com os do arquivo anterior
-    filtros = {mes:[],orgao:[],etiqueta:[],assunto:[],reu:[],classejudicial:[]};
-    
-    let reader=new FileReader();
-    reader.onload=e=>{
-        let linhas=e.target.result.split("\n").map(l=>l.replaceAll('"',''));
+
+    filtros = {
+        mes:[],
+        orgao:[],
+        etiqueta:[],
+        assunto:[],
+        reu:[],
+        classejudicial:[]
+    };
+
+    let reader = new FileReader();
+
+    reader.onload = e => {
+
+        let linhas = e.target.result
+            .split("\n")
+            .filter(l => l.trim() !== "");
+
         if(linhas.length === 0) return;
 
-        let cabecalho = linhas[0].split(";").map(h => h.trim());
-        let idxClasse = cabecalho.indexOf("classeJudicial");
-        if(idxClasse === -1) idxClasse = cabecalho.findIndex(h => h.toLowerCase() === "classejudicial");
-        if(idxClasse === -1) idxClasse = 4;
+        let cabecalho = linhas[0]
+            .replace(/\r/g, "")
+            .split(";")
+            .map(h => h.replaceAll('"','').trim());
 
-        dados=linhas.slice(1).map(l=>{
-            let c=l.split(";");
-            if(c.length < 2) return null; 
+        let idx = {};
 
-            let arrayEtiquetas = (c[14]||"").split(",").map(e=>e.trim()).filter(e=>e);
-            if(arrayEtiquetas.length === 0) arrayEtiquetas = ["Sem Etiqueta"];
+        cabecalho.forEach((nome,coluna)=>{
+            idx[nome] = coluna;
+        });
 
-            return{
-                proc:c[5], autor:c[2], reu:c[3], orgao:c[8], data:c[9],
-                mes:(c[9]||"").split("/")[1], assunto:c[22], etiqueta: arrayEtiquetas,
-                dias:parseInt(c[29])||0, classejudicial: c[idxClasse] ? c[idxClasse].trim() : "",
-                _riscado: false, _a_concluir: false, notas: "" 
+        dados = linhas.slice(1).map(l => {
+
+            let c = l
+                .replace(/\r/g, "")
+                .split(";")
+                .map(v => v.replaceAll('"',''));
+
+            if(c.length < 2) return null;
+
+            let tags = c[idx["tagsProcessoList"]] || "";
+
+            let arrayEtiquetas = tags
+                .split(",")
+                .map(x => x.trim())
+                .filter(x => x);
+
+            if(arrayEtiquetas.length === 0){
+                arrayEtiquetas = ["Sem Etiqueta"];
+            }
+
+            let dataChegada = c[idx["dataChegada"]] || "";
+
+            return {
+
+                proc:
+                    c[idx["numeroProcesso"]] || "",
+
+                autor:
+                    c[idx["poloAtivo"]] || "",
+
+                reu:
+                    c[idx["poloPassivo"]] || "",
+
+                orgao:
+                    c[idx["orgaoJulgador"]] || "",
+
+                data:
+                    dataChegada,
+
+                mes:
+                    (dataChegada.split("/")[1] || ""),
+
+                assunto:
+                    c[idx["assuntoPrincipal"]] || "",
+
+                etiqueta:
+                    arrayEtiquetas,
+
+                dias:
+                    parseInt(
+                        c[idx["diasChegada"]] ||
+                        c[idx["diasEmAberto"]] ||
+                        0
+                    ) || 0,
+
+                classejudicial:
+                    c[idx["classeJudicial"]] || "",
+
+                _riscado:false,
+                _a_concluir:false,
+                notas:""
             };
-        }).filter(d => d !== null); 
+
+        }).filter(x => x !== null);
+
         mudarAba('com');
     };
+
     reader.readAsText(f);
 }
 
